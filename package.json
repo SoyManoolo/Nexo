@@ -1,0 +1,14 @@
+{
+  "name": "nexo",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "pnpm --filter @nexo/web dev",
+    "build": "pnpm --filter @nexo/web build",
+    "check": "pnpm --filter @nexo/web check"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

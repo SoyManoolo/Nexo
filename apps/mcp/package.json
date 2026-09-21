@@ -1,0 +1,7 @@
+{
+  "name": "@nexo/mcp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Servidor MCP de Nexo (pendiente de implementación)."
+}

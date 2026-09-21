@@ -1,0 +1,21 @@
+---
+interface Props { title: string; }
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content="Nexo, tu espacio personal para decidir qué hacer ahora." />
+    <title>{title}</title>
+  </head>
+  <body><slot /></body>
+</html>
+
+<style is:global>
+  :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #17211c; background: #f7f7f2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-width: 320px; }
+</style>

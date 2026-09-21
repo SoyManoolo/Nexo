@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Nexo">
+  <main>
+    <p class="eyebrow">NEXO</p>
+    <h1>Decide qué hacer ahora.</h1>
+    <p class="intro">Tu espacio personal para proyectos y tareas. La primera versión de Nexo ya está en marcha.</p>
+    <section aria-label="Próximos pasos">
+      <h2>Próximos pasos</h2>
+      <ol><li>Definir proyectos y tareas.</li><li>Construir la vista de Inbox y Hoy.</li><li>Conectar Nexo a Codex mediante MCP.</li></ol>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  main { display: grid; align-content: center; min-height: 100vh; max-width: 48rem; padding: 3rem 1.5rem; margin: 0 auto; }
+  .eyebrow { margin: 0 0 1rem; color: #3d7655; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.16em; }
+  h1 { max-width: 12ch; margin: 0; font-size: clamp(3rem, 10vw, 5.5rem); line-height: 0.98; letter-spacing: -0.06em; }
+  .intro { max-width: 38rem; margin: 1.75rem 0 3rem; color: #526159; font-size: 1.2rem; line-height: 1.6; }
+  section { padding: 1.5rem; border: 1px solid #dce2da; border-radius: 1rem; background: #fff; }
+  h2 { margin: 0 0 1rem; font-size: 1rem; }
+  ol { display: grid; gap: 0.75rem; padding-left: 1.5rem; margin: 0; color: #526159; line-height: 1.45; }
+</style>
