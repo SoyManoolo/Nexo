@@ -8,6 +8,7 @@ type ProjectRow = {
   status: ProjectStatus;
   created_at: Date | string;
   updated_at: Date | string;
+  archived_at?: Date | string | null;
 };
 
 export type CreateProjectInput = {
@@ -128,7 +129,7 @@ export class ProjectRepository {
     const result = await databasePool.query<ProjectRow>(
       `
         UPDATE projects
-        SET status = 'archived', updated_at = $2
+        SET status = 'archived', archived_at = $2, updated_at = $2
         WHERE id = $1
         RETURNING id, name, description, status, created_at, updated_at
       `,

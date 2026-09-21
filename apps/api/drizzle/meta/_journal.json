@@ -8,6 +8,20 @@
       "when": 1790023762669,
       "tag": "0000_quiet_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790025258120,
+      "tag": "0001_motionless_toad_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790025299759,
+      "tag": "0002_dusty_bushwacker",
+      "breakpoints": true
     }
   ]
 }
