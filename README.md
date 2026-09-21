@@ -33,5 +33,23 @@ pnpm check
 pnpm build
 ```
 
+### PostgreSQL local
+
+PostgreSQL se ejecuta con Docker Compose y conserva los datos en el volumen `postgres_data`.
+
+```sh
+cp .env.example .env
+docker compose up -d postgres
+docker compose ps
+```
+
+Para detener el servicio sin borrar los datos:
+
+```sh
+docker compose down
+```
+
+El volumen solo se elimina explícitamente con `docker compose down -v`.
+
 El backend aplica las capas `routes → services → repositories → db`. El servidor MCP y la
 web consumirán la API privada; ninguno accederá directamente a SQLite.
