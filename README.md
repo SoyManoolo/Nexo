@@ -51,5 +51,20 @@ docker compose down
 
 El volumen solo se elimina explícitamente con `docker compose down -v`.
 
+### Migraciones de base de datos
+
+Desde `apps/api`, con `DATABASE_URL` configurada:
+
+```sh
+pnpm db:generate
+pnpm db:check
+pnpm db:migrate
+pnpm db:rollback
+```
+
+`db:rollback` retira una migración del directorio local de Drizzle Kit. Drizzle Kit no
+genera migraciones inversas automáticamente; para revertir una migración ya aplicada hay
+que crear y aplicar una nueva migración que deshaga sus cambios.
+
 El backend aplica las capas `routes → services → repositories → db`. El servidor MCP y la
 web consumirán la API privada; ninguno accederá directamente a SQLite.

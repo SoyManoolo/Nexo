@@ -8,7 +8,9 @@
     "build": "tsc --project tsconfig.json",
     "check": "tsc --noEmit --project tsconfig.json",
     "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
     "db:migrate": "drizzle-kit migrate",
+    "db:rollback": "drizzle-kit drop",
     "start": "node dist/server.js",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
