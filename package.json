@@ -5,8 +5,9 @@
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "pnpm --filter @nexo/web dev",
-    "build": "pnpm --filter @nexo/web build",
-    "check": "pnpm --filter @nexo/web check"
+    "dev:api": "pnpm --filter @nexo/api dev",
+    "build": "pnpm --filter @nexo/web build && pnpm --filter @nexo/api build",
+    "check": "pnpm --filter @nexo/web check && pnpm --filter @nexo/api check"
   },
   "devDependencies": {
     "prettier": "^3.6.2"

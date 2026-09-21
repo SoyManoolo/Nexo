@@ -1,10 +1,10 @@
 {
-  "name": "@nexo/contracts",
+  "name": "@nexo/api-client",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "zod": "^3.24.2"
+    "@nexo/contracts": "workspace:*"
   }
 }

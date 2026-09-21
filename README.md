@@ -10,12 +10,13 @@ de negocio y contratos.
 
 ```text
 apps/
-  web/          Interfaz Astro y API HTTP
-  mcp/          Futuro servidor MCP para Codex
+  web/          Interfaz Astro
+  api/          Backend HTTP y acceso a SQLite
+  mcp/          Adaptador MCP para Codex
 packages/
   contracts/    Tipos y esquemas compartidos
-  core/         Reglas de negocio
-  db/           Esquema, migraciones y acceso a datos
+  api-client/   Cliente HTTP tipado para web y MCP
+infra/          Configuración de despliegue
 ```
 
 ## Desarrollo
@@ -31,3 +32,6 @@ La web quedará disponible normalmente en `http://localhost:4321`.
 pnpm check
 pnpm build
 ```
+
+El backend aplica las capas `routes → services → repositories → db`. El servidor MCP y la
+web consumirán la API privada; ninguno accederá directamente a SQLite.
