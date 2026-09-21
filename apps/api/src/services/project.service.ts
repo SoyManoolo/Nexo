@@ -99,7 +99,10 @@ export class ProjectService {
     return this.requireProject(this.projectRepository.archive(id), id);
   }
 
-  private async requireProject(projectPromise: Promise<Project | null>, id: string): Promise<Project> {
+  private async requireProject(
+    projectPromise: Promise<Project | null>,
+    id: string,
+  ): Promise<Project> {
     const project = await projectPromise;
 
     if (!project) {
