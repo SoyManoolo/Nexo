@@ -107,7 +107,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
         <div class="detail-layout">
           <section aria-labelledby="tasks-heading">
             <h2 id="tasks-heading">Tareas <span class="muted">({tasks.length})</span></h2>
-            <form method="get" class="filters">
+            <form method="get" class="filters" data-filter-form>
               <label class="field">Estado
                 <select name="status">
                   <option value="">Todos</option>
@@ -126,7 +126,6 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
                   <option value="high" selected={priorityFilter === 'high'}>Alta</option>
                 </select>
               </label>
-              <button class="button secondary" type="submit">Filtrar</button>
             </form>
             {tasks.length === 0 ? (
               <div class="notice"><p>{statusFilter || priorityFilter ? 'No hay tareas con estos filtros.' : 'Este proyecto todavía no tiene tareas.'}</p></div>
@@ -190,6 +189,11 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
 </AppLayout>
 
 <script>
+  const filterForm = document.querySelector<HTMLFormElement>('[data-filter-form]');
+  filterForm?.addEventListener('change', (event) => {
+    if (event.target instanceof HTMLSelectElement) filterForm.requestSubmit();
+  });
+
   const taskModal = document.querySelector<HTMLDialogElement>('#task-modal');
   const openTaskModal = document.querySelector<HTMLButtonElement>('#open-task-modal');
   const closeTaskModal = document.querySelector<HTMLButtonElement>('#close-task-modal');

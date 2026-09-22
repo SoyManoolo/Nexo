@@ -93,7 +93,7 @@ try {
       <a href={`/inbox${priorityFilter ? `?priority=${priorityFilter}` : ''}`} aria-current={!showDone ? 'page' : undefined}>Pendientes</a>
       <a href={`/inbox?status=done${priorityFilter ? `&priority=${priorityFilter}` : ''}`} aria-current={showDone ? 'page' : undefined}>Completadas</a>
     </div>
-    <form method="get" class="filters">
+    <form method="get" class="filters" data-filter-form>
       {showDone && <input type="hidden" name="status" value="done" />}
       <label class="field">Prioridad
         <select name="priority">
@@ -103,7 +103,6 @@ try {
           <option value="high" selected={priorityFilter === 'high'}>Alta</option>
         </select>
       </label>
-      <button class="button secondary" type="submit">Filtrar</button>
     </form>
     {!errorMessage && tasks.length === 0 && <div class="notice"><h2>{priorityFilter ? 'No hay tareas con esta prioridad' : showDone ? 'Nada completado todavía' : 'Inbox vacío'}</h2><p>{priorityFilter ? 'Prueba con otra prioridad o muestra todas.' : showDone ? 'Las tareas que completes aparecerán aquí.' : 'Cuando captures una tarea, aparecerá aquí.'}</p></div>}
     <ul class="tasks">
@@ -121,6 +120,11 @@ try {
 </AppLayout>
 
 <script>
+  const filterForm = document.querySelector<HTMLFormElement>('[data-filter-form]');
+  filterForm?.addEventListener('change', (event) => {
+    if (event.target instanceof HTMLSelectElement) filterForm.requestSubmit();
+  });
+
   const captureForm = document.querySelector<HTMLFormElement>('#capture-form');
   captureForm?.addEventListener('submit', () => {
     const dueAt = captureForm.elements.namedItem('dueAt') as HTMLInputElement | null;
