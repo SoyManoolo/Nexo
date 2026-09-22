@@ -253,6 +253,21 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
             <button class="button danger" type="submit">Eliminar proyecto</button>
           </form>
         </dialog>
+        <dialog class="task-modal" id="block-reason-modal" aria-labelledby="block-reason-title">
+          <form class="quick-add" id="block-reason-form">
+            <div class="modal-header">
+              <h2 id="block-reason-title">Motivo del bloqueo</h2>
+              <button class="modal-close" type="button" id="close-block-reason-modal" aria-label="Cerrar">×</button>
+            </div>
+            <label class="field">¿Qué impide avanzar?
+              <textarea id="block-reason" required maxlength="2000" placeholder="Describe el bloqueo"></textarea>
+            </label>
+            <div class="modal-actions">
+              <button class="button secondary" type="button" id="cancel-block-reason-modal">Cancelar</button>
+              <button class="button" type="submit">Bloquear tarea</button>
+            </div>
+          </form>
+        </dialog>
       </>
     ) : (
       <div class="notice error" role="alert"><h1>Proyecto no disponible</h1><p>{errorMessage}</p><a href="/projects">Volver a intentar</a></div>
@@ -274,6 +289,11 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   const closeProjectModal = document.querySelector<HTMLButtonElement>('#close-project-modal');
   const cancelTaskModal = document.querySelector<HTMLButtonElement>('#cancel-task-modal');
   const taskForm = document.querySelector<HTMLFormElement>('#project-task-form');
+  const blockReasonModal = document.querySelector<HTMLDialogElement>('#block-reason-modal');
+  const blockReasonForm = document.querySelector<HTMLFormElement>('#block-reason-form');
+  const blockReason = document.querySelector<HTMLTextAreaElement>('#block-reason');
+  const closeBlockReasonModal = document.querySelector<HTMLButtonElement>('#close-block-reason-modal');
+  const cancelBlockReasonModal = document.querySelector<HTMLButtonElement>('#cancel-block-reason-modal');
 
   openTaskModal?.addEventListener('click', () => taskModal?.showModal());
   openProjectModal?.addEventListener('click', () => projectModal?.showModal());
@@ -287,6 +307,33 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   });
 
   let draggedTask: HTMLElement | null = null;
+  let pendingBlockedTaskId: string | null = null;
+
+  async function moveTask(taskId: string, targetStatus: string, blockedReason = ''): Promise<void> {
+    const form = new FormData();
+    form.set('intent', 'move-task');
+    form.set('taskId', taskId);
+    form.set('targetStatus', targetStatus);
+    form.set('blockedReason', blockedReason);
+    const response = await fetch(window.location.pathname, { method: 'POST', body: form });
+    if (response.redirected) window.location.assign(response.url);
+  }
+
+  function closeBlockedReasonModal(): void {
+    pendingBlockedTaskId = null;
+    blockReasonForm?.reset();
+    blockReasonModal?.close();
+  }
+
+  closeBlockReasonModal?.addEventListener('click', closeBlockedReasonModal);
+  cancelBlockReasonModal?.addEventListener('click', closeBlockedReasonModal);
+  blockReasonForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const reason = blockReason?.value.trim() ?? '';
+    if (!pendingBlockedTaskId || !reason) return;
+    await moveTask(pendingBlockedTaskId, 'blocked', reason);
+  });
+
   document.querySelectorAll<HTMLElement>('[data-task-card]').forEach((card) => {
     card.addEventListener('dragstart', (event) => {
       draggedTask = card;
@@ -307,25 +354,19 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
       const taskId = event.dataTransfer?.getData('text/plain') ?? draggedTask?.dataset.taskId;
       const targetStatus = column.dataset.status;
       if (!taskId || !targetStatus) return;
-      let blockedReason = '';
       if (targetStatus === 'blocked') {
-        blockedReason = window.prompt('Indica el motivo del bloqueo:')?.trim() ?? '';
-        if (!blockedReason) return;
+        pendingBlockedTaskId = taskId;
+        blockReasonModal?.showModal();
+        blockReason?.focus();
+        return;
       }
-      const form = new FormData();
-      form.set('intent', 'move-task');
-      form.set('taskId', taskId);
-      form.set('targetStatus', targetStatus);
-      form.set('blockedReason', blockedReason);
-      const response = await fetch(window.location.pathname, { method: 'POST', body: form });
-      if (response.redirected) window.location.assign(response.url);
+      await moveTask(taskId, targetStatus);
     });
   });
 </script>
 
 <style>
   .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
-  .project-page { width: min(100% - 6rem, 112rem); }
   h2 { margin: 0 0 1rem; font-size: 1.2rem; }
   .tasks-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
   .project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.65rem; }
@@ -361,6 +402,5 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
   .archive-panel p { color: #58665c; line-height: 1.5; }
   .delete-panel { border-top: 1px solid #dce2da; padding: 1rem 1.25rem 1.25rem; }
-  @media (max-width: 900px) { .project-page { width: min(100% - 3rem, 112rem); } }
   @media (max-width: 600px) { .project-actions, .tasks-header, .task-link, .filters { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } .quick-fields { grid-template-columns: 1fr; } }
 </style>
