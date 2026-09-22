@@ -149,3 +149,36 @@ test('TaskIdParamsSchema accepts UUIDs and ListTasksQuerySchema validates filter
   assert.throws(() => ListTasksQuerySchema.parse({ status: 'unknown' }));
   assert.throws(() => ListTasksQuerySchema.parse({ scheduledFor: 'tomorrow' }));
 });
+
+test('Task schemas support inbox tasks and project task data', () => {
+  assert.deepEqual(CreateTaskInputSchema.parse({ title: 'Capture idea' }), {
+    title: 'Capture idea',
+  });
+  assert.deepEqual(
+    CreateTaskInputSchema.parse({
+      title: 'Ship feature',
+      projectId: '550e8400-e29b-41d4-a716-446655440000',
+      priority: 'high',
+    }),
+    {
+      title: 'Ship feature',
+      projectId: '550e8400-e29b-41d4-a716-446655440000',
+      priority: 'high',
+    },
+  );
+});
+
+test('Task schemas leave project existence validation to the service boundary', () => {
+  assert.doesNotThrow(() =>
+    CreateTaskInputSchema.parse({
+      title: 'Task with project',
+      projectId: '550e8400-e29b-41d4-a716-446655440099',
+    }),
+  );
+  assert.throws(() =>
+    CreateTaskInputSchema.parse({ title: 'Blocked task', status: 'blocked' }),
+  );
+  assert.throws(() =>
+    UpdateTaskInputSchema.parse({ status: 'blocked', blockedReason: '   ' }),
+  );
+});

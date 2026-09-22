@@ -138,3 +138,133 @@ Response `200`:
   "updatedAt": "2026-01-01T12:10:00.000Z"
 }
 ```
+
+## Tareas
+
+Las tareas pueden permanecer en el inbox (`projectId: null`) o pertenecer a un proyecto activo.
+Los proyectos inexistentes devuelven `404` y los archivados no aceptan tareas nuevas (`400`).
+
+### `POST /tasks`
+
+Crea una tarea. `status` por defecto es `inbox` y `priority` por defecto es `medium`.
+
+Request para el inbox:
+
+```http
+POST /tasks
+Content-Type: application/json
+
+{"title":"Procesar notas","priority":"high"}
+```
+
+Request dentro de un proyecto:
+
+```http
+POST /tasks
+Content-Type: application/json
+
+{"title":"Preparar entrega","projectId":"550e8400-e29b-41d4-a716-446655440002","status":"next"}
+```
+
+Response `201`:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440003",
+  "title": "Procesar notas",
+  "notes": null,
+  "projectId": null,
+  "status": "inbox",
+  "priority": "high",
+  "scheduledFor": null,
+  "dueAt": null,
+  "startedAt": null,
+  "completedAt": null,
+  "blockedReason": null,
+  "createdAt": "2026-01-01T12:00:00.000Z",
+  "updatedAt": "2026-01-01T12:00:00.000Z"
+}
+```
+
+Una tarea `blocked` requiere `blockedReason`. Una tarea `done` requiere `completedAt` cuando se
+crea directamente.
+
+### `GET /tasks`
+
+Lista tareas. Se pueden combinar los filtros `projectId`, `status` y `priority`; también admite
+`scheduledFor` y `dueAt`.
+
+Request:
+
+```http
+GET /tasks?projectId=550e8400-e29b-41d4-a716-446655440002&status=next&priority=high
+```
+
+Response `200`:
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440003",
+    "title": "Preparar entrega",
+    "notes": null,
+    "projectId": "550e8400-e29b-41d4-a716-446655440002",
+    "status": "next",
+    "priority": "high",
+    "scheduledFor": null,
+    "dueAt": null,
+    "startedAt": null,
+    "completedAt": null,
+    "blockedReason": null,
+    "createdAt": "2026-01-01T12:00:00.000Z",
+    "updatedAt": "2026-01-01T12:00:00.000Z"
+  }
+]
+```
+
+### `GET /tasks/:id`
+
+Consulta una tarea por UUID. Un UUID válido pero inexistente devuelve `404`.
+
+### `PATCH /tasks/:id`
+
+Actualiza los campos de una tarea. Para bloquearla se envía un motivo:
+
+```http
+PATCH /tasks/550e8400-e29b-41d4-a716-446655440003
+Content-Type: application/json
+
+{"status":"blocked","blockedReason":"Esperando aprobación"}
+```
+
+Response `200`:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440003",
+  "title": "Preparar entrega",
+  "notes": null,
+  "projectId": "550e8400-e29b-41d4-a716-446655440002",
+  "status": "blocked",
+  "priority": "high",
+  "scheduledFor": null,
+  "dueAt": null,
+  "startedAt": null,
+  "completedAt": null,
+  "blockedReason": "Esperando aprobación",
+  "createdAt": "2026-01-01T12:00:00.000Z",
+  "updatedAt": "2026-01-01T12:05:00.000Z"
+}
+```
+
+### Acciones de tareas
+
+`POST /tasks/:id/complete` marca una tarea como `done`, `POST /tasks/:id/reopen` la devuelve a
+`next`, y `POST /tasks/:id/move-to-inbox` elimina su proyecto y la devuelve al inbox. Todas
+devuelven la tarea actualizada con `200`.
+
+```http
+POST /tasks/550e8400-e29b-41d4-a716-446655440003/complete
+POST /tasks/550e8400-e29b-41d4-a716-446655440003/reopen
+POST /tasks/550e8400-e29b-41d4-a716-446655440003/move-to-inbox
+```
