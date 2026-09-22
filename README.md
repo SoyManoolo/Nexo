@@ -42,6 +42,8 @@ pnpm dev
 Abre `http://localhost:4321`. Astro consulta la API desde el servidor mediante
 `API_BASE_URL`; esta variable no se envía al navegador. Si tu PostgreSQL ya usa otra
 contraseña, ajusta `DATABASE_URL` a sus credenciales actuales antes de migrar.
+Los formularios locales admiten `localhost` y `127.0.0.1`. Para servir la web bajo otro
+nombre de host, configura `WEB_ALLOWED_HOSTNAME` al compilar Astro.
 
 ```sh
 pnpm check
