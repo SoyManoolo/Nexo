@@ -33,7 +33,13 @@ if (Astro.request.method === 'POST') {
       await api.archiveProject(id);
       return Astro.redirect('/projects?status=archived', 303);
     } else if (intent === 'create-task') {
-      await api.createTask({ title: String(form.get('title') ?? ''), projectId: id });
+      await api.createTask({
+        title: String(form.get('title') ?? ''),
+        notes: String(form.get('notes') ?? '') || null,
+        priority: String(form.get('priority') ?? 'medium') as Task['priority'],
+        scheduledFor: String(form.get('scheduledFor') ?? '') || null,
+        projectId: id,
+      });
     } else {
       throw new Error('Acción desconocida');
     }
@@ -117,9 +123,14 @@ if (project) {
               </ul>
             )}
             {project.status === 'active' && (
-              <form method="post" class="quick-add">
+              <form method="post" class="quick-add card">
                 <input type="hidden" name="intent" value="create-task" />
                 <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" /></label>
+                <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales"></textarea></label>
+                <div class="quick-fields">
+                  <label class="field">Prioridad <select name="priority"><option value="medium">Media</option><option value="low">Baja</option><option value="high">Alta</option></select></label>
+                  <label class="field">Programada para <input name="scheduledFor" type="date" /></label>
+                </div>
                 <button class="button" type="submit">Añadir tarea</button>
               </form>
             )}
@@ -159,11 +170,12 @@ if (project) {
   .task-link { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task-link:hover { border-color: #7faa8c; }
   .task-link small { flex: none; color: #58665c; }
-  .quick-add { display: flex; align-items: end; gap: 0.6rem; margin-top: 1rem; }
-  .quick-add .field { flex: 1; }
+  .quick-add { display: grid; gap: 0.8rem; margin-top: 1rem; }
+  .quick-add .button { justify-self: start; }
+  .quick-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
   .archive-panel { margin-top: 1.5rem; border-top: 1px solid #dce2da; padding-top: 1rem; }
   .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
   .archive-panel p { color: #58665c; line-height: 1.5; }
   @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
-  @media (max-width: 600px) { .quick-add, .task-link, .filters { flex-direction: column; align-items: stretch; } }
+  @media (max-width: 600px) { .task-link, .filters { flex-direction: column; align-items: stretch; } .quick-fields { grid-template-columns: 1fr; } }
 </style>

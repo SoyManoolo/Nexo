@@ -1,9 +1,10 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
 import { createApiClient } from '../lib/api';
-import type { Task } from '@nexo/contracts';
+import type { Project, Task } from '@nexo/contracts';
 
 let tasks: Task[] = [];
+let projects: Project[] = [];
 let errorMessage: string | null = null;
 const showDone = Astro.url.searchParams.get('status') === 'done';
 const priorityParam = Astro.url.searchParams.get('priority');
@@ -14,8 +15,15 @@ const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   try {
-    await createApiClient().createTask({ title: String(form.get('title') ?? '') });
-    return Astro.redirect('/inbox', 303);
+    const projectId = String(form.get('projectId') ?? '') || null;
+    await createApiClient().createTask({
+      title: String(form.get('title') ?? ''),
+      notes: String(form.get('notes') ?? '') || null,
+      priority: String(form.get('priority') ?? 'medium') as Task['priority'],
+      scheduledFor: String(form.get('scheduledFor') ?? '') || null,
+      projectId,
+    });
+    return Astro.redirect(projectId ? `/projects/${projectId}` : '/inbox', 303);
   } catch (error) {
     console.error('No se pudo crear la tarea:', error);
     errorMessage = 'No se pudo crear la tarea. Comprueba el título y vuelve a intentarlo.';
@@ -24,7 +32,12 @@ if (Astro.request.method === 'POST') {
 }
 
 try {
-  tasks = (await createApiClient().listTasks({ priority: priorityFilter })).filter((task) =>
+  const api = createApiClient();
+  [tasks, projects] = await Promise.all([
+    api.listTasks({ priority: priorityFilter }),
+    api.listProjects({ status: 'active' }),
+  ]);
+  tasks = tasks.filter((task) =>
     task.projectId === null && (showDone ? task.status === 'done' : task.status !== 'done'),
   );
 } catch (error) {
@@ -40,7 +53,17 @@ try {
 
     <form class="capture card" method="post">
       <label class="field">Nueva tarea <input name="title" maxlength="200" required placeholder="¿Qué tienes pendiente?" autocomplete="off" /></label>
-      <button class="button" type="submit">Añadir al inbox</button>
+      <div class="capture-details">
+        <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales"></textarea></label>
+        <label class="field">Proyecto
+          <select name="projectId"><option value="">Sin proyecto</option>{projects.map((project) => <option value={project.id}>{project.name}</option>)}</select>
+        </label>
+        <label class="field">Prioridad
+          <select name="priority"><option value="medium">Media</option><option value="low">Baja</option><option value="high">Alta</option></select>
+        </label>
+        <label class="field">Programada para <input name="scheduledFor" type="date" /></label>
+      </div>
+      <button class="button" type="submit">Crear tarea</button>
     </form>
 
     <div class="tabs">
@@ -69,8 +92,10 @@ try {
 </AppLayout>
 
 <style>
-  .capture { display: flex; align-items: end; gap: 0.7rem; margin-bottom: 2rem; }
-  .capture .field { flex: 1; }
+  .capture { display: grid; gap: 0.9rem; margin-bottom: 2rem; }
+  .capture-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+  .capture-details .field:first-child { grid-row: span 2; }
+  .capture button { justify-self: start; }
   .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dce2da; }
   .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
   .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
@@ -81,5 +106,5 @@ try {
   .task:hover { border-color: #7faa8c; }
   .task small { color: #58665c; }
   .task span small { display: block; margin-top: 0.3rem; }
-  @media (max-width: 600px) { .capture, .task { flex-direction: column; align-items: stretch; } }
+  @media (max-width: 600px) { .capture-details { grid-template-columns: 1fr; } .task { flex-direction: column; align-items: stretch; } }
 </style>
