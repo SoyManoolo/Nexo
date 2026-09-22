@@ -1,12 +1,15 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import { createApiClient } from '../../lib/api';
+import { formError } from '../../lib/form-error';
+import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
 import type { Project } from '@nexo/contracts';
 
 let projects: Project[] = [];
 let archived: Project[] = [];
 let errorMessage: string | null = null;
+let submittedForm: FormData | null = null;
 const showArchived = Astro.url.searchParams.get('status') === 'archived';
 
 if (Astro.request.method === 'POST') {
@@ -14,6 +17,7 @@ if (Astro.request.method === 'POST') {
     return new Response('Origen no permitido', { status: 403 });
   }
   const form = await Astro.request.formData();
+  submittedForm = form;
   try {
     await createApiClient().createProject({
       name: String(form.get('name') ?? ''),
@@ -23,8 +27,9 @@ if (Astro.request.method === 'POST') {
     return Astro.redirect('/projects', 303);
   } catch (error) {
     console.error('No se pudo crear el proyecto:', error);
-    errorMessage = 'No se pudo crear el proyecto. Revisa los datos e inténtalo de nuevo.';
-    Astro.response.status = 400;
+    const failure = formError(error, 'No se pudo crear el proyecto. Revisa los datos e inténtalo de nuevo.');
+    errorMessage = failure.message;
+    Astro.response.status = failure.status;
   }
 }
 
@@ -80,9 +85,9 @@ const visibleProjects = showArchived ? archived : projects;
         <section class="card" aria-labelledby="create-project-heading">
           <h2 id="create-project-heading">Nuevo proyecto</h2>
           <form method="post" class="form-grid">
-            <label class="field">Nombre <input name="name" required maxlength="120" autocomplete="off" /></label>
-            <label class="field">Descripción <textarea name="description" maxlength="2000"></textarea></label>
-            <label class="field">Color <input name="color" type="color" value="#4d8564" /></label>
+            <label class="field">Nombre <input name="name" required maxlength="120" autocomplete="off" value={formValue(submittedForm, 'name')} /></label>
+            <label class="field">Descripción <textarea name="description" maxlength="2000">{formValue(submittedForm, 'description')}</textarea></label>
+            <label class="field">Color <input name="color" type="color" value={formValue(submittedForm, 'color', '#4d8564')} /></label>
             <button class="button" type="submit">Crear proyecto</button>
           </form>
         </section>

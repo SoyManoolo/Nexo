@@ -1,6 +1,8 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import { createApiClient } from '../../lib/api';
+import { formError } from '../../lib/form-error';
+import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
 import { NexoApiNotFoundError } from '@nexo/api-client';
 import type { Project, Task, TaskStatus } from '@nexo/contracts';
@@ -9,6 +11,7 @@ const id = Astro.params.id ?? '';
 let task: Task | null = null;
 let projects: Project[] = [];
 let errorMessage: string | null = null;
+let submittedForm: FormData | null = null;
 let notFound = false;
 
 if (Astro.request.method === 'POST') {
@@ -17,6 +20,7 @@ if (Astro.request.method === 'POST') {
   }
   const form = await Astro.request.formData();
   const intent = String(form.get('intent') ?? '');
+  submittedForm = intent === 'save' ? form : null;
   try {
     const api = createApiClient();
     if (intent === 'complete') {
@@ -51,8 +55,9 @@ if (Astro.request.method === 'POST') {
     return Astro.redirect(`/tasks/${id}`, 303);
   } catch (error) {
     console.error('No se pudo guardar la tarea:', error);
-    errorMessage = 'No se pudieron guardar los cambios. Revisa los campos e inténtalo de nuevo.';
-    Astro.response.status = 400;
+    const failure = formError(error, 'No se pudieron guardar los cambios. Revisa los campos e inténtalo de nuevo.');
+    errorMessage = failure.message;
+    Astro.response.status = failure.status;
   }
 }
 
@@ -100,40 +105,40 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
             <h2>Detalles de la tarea</h2>
             <form method="post" class="form-grid" id="task-form">
               <input type="hidden" name="intent" value="save" />
-              <label class="field">Título <input name="title" required maxlength="200" value={task.title} /></label>
-              <label class="field">Notas <textarea name="notes" maxlength="2000">{task.notes ?? ''}</textarea></label>
+              <label class="field">Título <input name="title" required maxlength="200" value={formValue(submittedForm, 'title', task.title)} /></label>
+              <label class="field">Notas <textarea name="notes" maxlength="2000">{formValue(submittedForm, 'notes', task.notes ?? '')}</textarea></label>
               <label class="field">Proyecto
                 <select name="projectId">
-                  <option value="" selected={task.projectId === null}>Sin proyecto (inbox)</option>
-                  {projects.map((project) => <option value={project.id} selected={task.projectId === project.id} disabled={project.status === 'archived' && task.projectId !== project.id}>{project.name}{project.status === 'archived' ? ' (archivado)' : ''}</option>)}
+                  <option value="" selected={formValue(submittedForm, 'projectId', task.projectId ?? '') === ''}>Sin proyecto (inbox)</option>
+                  {projects.map((project) => <option value={project.id} selected={formValue(submittedForm, 'projectId', task.projectId ?? '') === project.id} disabled={project.status === 'archived' && task.projectId !== project.id}>{project.name}{project.status === 'archived' ? ' (archivado)' : ''}</option>)}
                 </select>
               </label>
               <div class="field-pair">
                 <label class="field">Estado
                   <select name="status" id="task-status">
-                    <option value="inbox" selected={task.status === 'inbox'}>Inbox</option>
-                    <option value="next" selected={task.status === 'next'}>Siguiente</option>
-                    <option value="in_progress" selected={task.status === 'in_progress'}>En curso</option>
-                    <option value="blocked" selected={task.status === 'blocked'}>Bloqueada</option>
-                    <option value="done" selected={task.status === 'done'}>Completada</option>
+                    <option value="inbox" selected={formValue(submittedForm, 'status', task.status) === 'inbox'}>Inbox</option>
+                    <option value="next" selected={formValue(submittedForm, 'status', task.status) === 'next'}>Siguiente</option>
+                    <option value="in_progress" selected={formValue(submittedForm, 'status', task.status) === 'in_progress'}>En curso</option>
+                    <option value="blocked" selected={formValue(submittedForm, 'status', task.status) === 'blocked'}>Bloqueada</option>
+                    <option value="done" selected={formValue(submittedForm, 'status', task.status) === 'done'}>Completada</option>
                   </select>
                 </label>
                 <label class="field">Prioridad
                   <select name="priority">
-                    <option value="low" selected={task.priority === 'low'}>Baja</option>
-                    <option value="medium" selected={task.priority === 'medium'}>Media</option>
-                    <option value="high" selected={task.priority === 'high'}>Alta</option>
+                    <option value="low" selected={formValue(submittedForm, 'priority', task.priority) === 'low'}>Baja</option>
+                    <option value="medium" selected={formValue(submittedForm, 'priority', task.priority) === 'medium'}>Media</option>
+                    <option value="high" selected={formValue(submittedForm, 'priority', task.priority) === 'high'}>Alta</option>
                   </select>
                 </label>
               </div>
               <div class="field-pair">
-                <label class="field">Programada para <input name="scheduledFor" type="date" value={task.scheduledFor ?? ''} /></label>
-                <label class="field">Fecha límite <input name="dueAt" id="task-due-at" type="datetime-local" value={task.dueAt?.slice(0, 16) ?? ''} data-iso={task.dueAt ?? ''} /></label>
+                <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(submittedForm, 'scheduledFor', task.scheduledFor ?? '')} /></label>
+                <label class="field">Fecha límite <input name="dueAt" id="task-due-at" type="datetime-local" value={formValue(submittedForm, 'dueAt', task.dueAt?.slice(0, 16) ?? '')} data-iso={submittedForm ? '' : task.dueAt ?? ''} /></label>
               </div>
               <input name="dueAtIso" id="task-due-at-iso" type="hidden" />
-              <label class="field">Inicio <input name="startedAt" id="task-started-at" type="datetime-local" value={task.startedAt?.slice(0, 16) ?? ''} data-iso={task.startedAt ?? ''} /></label>
+              <label class="field">Inicio <input name="startedAt" id="task-started-at" type="datetime-local" value={formValue(submittedForm, 'startedAt', task.startedAt?.slice(0, 16) ?? '')} data-iso={submittedForm ? '' : task.startedAt ?? ''} /></label>
               <input name="startedAtIso" id="task-started-at-iso" type="hidden" />
-              <label class="field" id="blocked-reason-field">Motivo de bloqueo <input name="blockedReason" value={task.blockedReason ?? ''} placeholder="¿Qué estás esperando?" /></label>
+              <label class="field" id="blocked-reason-field">Motivo de bloqueo <input name="blockedReason" value={formValue(submittedForm, 'blockedReason', task.blockedReason ?? '')} placeholder="¿Qué estás esperando?" /></label>
               <button class="button" type="submit">Guardar cambios</button>
             </form>
           </section>

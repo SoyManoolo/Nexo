@@ -1,6 +1,8 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import { createApiClient } from '../../lib/api';
+import { formError } from '../../lib/form-error';
+import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
 import { NexoApiNotFoundError } from '@nexo/api-client';
 import type { Project, Task } from '@nexo/contracts';
@@ -9,6 +11,7 @@ const id = Astro.params.id ?? '';
 let project: Project | null = null;
 let tasks: Task[] = [];
 let errorMessage: string | null = null;
+let submittedForm: FormData | null = null;
 let notFound = false;
 const statusParam = Astro.url.searchParams.get('status');
 const priorityParam = Astro.url.searchParams.get('priority');
@@ -24,6 +27,7 @@ if (Astro.request.method === 'POST') {
     return new Response('Origen no permitido', { status: 403 });
   }
   const form = await Astro.request.formData();
+  submittedForm = form;
   const intent = String(form.get('intent') ?? '');
   try {
     const api = createApiClient();
@@ -50,8 +54,9 @@ if (Astro.request.method === 'POST') {
     return Astro.redirect(`/projects/${id}`, 303);
   } catch (error) {
     console.error('No se pudo guardar el proyecto:', error);
-    errorMessage = 'No se pudieron guardar los cambios. Revisa los datos e inténtalo de nuevo.';
-    Astro.response.status = 400;
+    const failure = formError(error, 'No se pudieron guardar los cambios. Revisa los datos e inténtalo de nuevo.');
+    errorMessage = failure.message;
+    Astro.response.status = failure.status;
   }
 }
 
@@ -76,6 +81,9 @@ if (project) {
     errorMessage ??= 'El proyecto está disponible, pero no se pudieron cargar sus tareas.';
   }
 }
+
+const updateForm = submittedForm?.get('intent') === 'update' ? submittedForm : null;
+const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm : null;
 ---
 
 <AppLayout title={project ? `${project.name} · Nexo` : 'Proyecto · Nexo'} section="projects">
@@ -129,11 +137,11 @@ if (project) {
             {project.status === 'active' && (
               <form method="post" class="quick-add card">
                 <input type="hidden" name="intent" value="create-task" />
-                <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" /></label>
-                <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales"></textarea></label>
+                <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" value={formValue(taskForm, 'title')} /></label>
+                <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(taskForm, 'notes')}</textarea></label>
                 <div class="quick-fields">
-                  <label class="field">Prioridad <select name="priority"><option value="medium">Media</option><option value="low">Baja</option><option value="high">Alta</option></select></label>
-                  <label class="field">Programada para <input name="scheduledFor" type="date" /></label>
+                  <label class="field">Prioridad <select name="priority"><option value="medium" selected={formValue(taskForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(taskForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(taskForm, 'priority') === 'high'}>Alta</option></select></label>
+                  <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(taskForm, 'scheduledFor')} /></label>
                 </div>
                 <button class="button" type="submit">Añadir tarea</button>
               </form>
@@ -143,9 +151,9 @@ if (project) {
             <h2>Detalles del proyecto</h2>
             <form method="post" class="form-grid">
               <input type="hidden" name="intent" value="update" />
-              <label class="field">Nombre <input name="name" required maxlength="120" value={project.name} /></label>
-              <label class="field">Descripción <textarea name="description" maxlength="2000">{project.description ?? ''}</textarea></label>
-              <label class="field">Color <input name="color" type="color" value={project.color ?? '#4d8564'} /></label>
+              <label class="field">Nombre <input name="name" required maxlength="120" value={formValue(updateForm, 'name', project.name)} /></label>
+              <label class="field">Descripción <textarea name="description" maxlength="2000">{formValue(updateForm, 'description', project.description ?? '')}</textarea></label>
+              <label class="field">Color <input name="color" type="color" value={formValue(updateForm, 'color', project.color ?? '#4d8564')} /></label>
               <button class="button secondary" type="submit">Guardar cambios</button>
             </form>
             {project.status === 'active' && (
