@@ -138,18 +138,30 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               </ul>
             )}
             {project.status === 'active' && (
-              <form method="post" class="quick-add card" id="project-task-form">
-                <input type="hidden" name="intent" value="create-task" />
-                <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" value={formValue(taskForm, 'title')} /></label>
-                <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(taskForm, 'notes')}</textarea></label>
-                <div class="quick-fields">
-                  <label class="field">Prioridad <select name="priority"><option value="medium" selected={formValue(taskForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(taskForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(taskForm, 'priority') === 'high'}>Alta</option></select></label>
-                  <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(taskForm, 'scheduledFor')} /></label>
-                  <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={formValue(taskForm, 'dueAt')} /></label>
-                  <input name="dueAtIso" type="hidden" />
-                </div>
-                <button class="button" type="submit">Añadir tarea</button>
-              </form>
+              <>
+                <button class="button add-task-button" type="button" id="open-task-modal">Añadir tarea</button>
+                <dialog class="task-modal" id="task-modal" aria-labelledby="task-modal-title" open={Boolean(taskForm)}>
+                  <form method="post" class="quick-add" id="project-task-form">
+                    <input type="hidden" name="intent" value="create-task" />
+                    <div class="modal-header">
+                      <h2 id="task-modal-title">Añadir tarea</h2>
+                      <button class="modal-close" type="button" id="close-task-modal" aria-label="Cerrar">×</button>
+                    </div>
+                    <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" value={formValue(taskForm, 'title')} autofocus /></label>
+                    <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(taskForm, 'notes')}</textarea></label>
+                    <div class="quick-fields">
+                      <label class="field">Prioridad <select name="priority"><option value="medium" selected={formValue(taskForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(taskForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(taskForm, 'priority') === 'high'}>Alta</option></select></label>
+                      <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(taskForm, 'scheduledFor')} /></label>
+                      <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={formValue(taskForm, 'dueAt')} /></label>
+                      <input name="dueAtIso" type="hidden" />
+                    </div>
+                    <div class="modal-actions">
+                      <button class="button secondary" type="button" id="cancel-task-modal">Cancelar</button>
+                      <button class="button" type="submit">Añadir tarea</button>
+                    </div>
+                  </form>
+                </dialog>
+              </>
             )}
           </section>
           <aside class="card">
@@ -178,7 +190,15 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
 </AppLayout>
 
 <script>
+  const taskModal = document.querySelector<HTMLDialogElement>('#task-modal');
+  const openTaskModal = document.querySelector<HTMLButtonElement>('#open-task-modal');
+  const closeTaskModal = document.querySelector<HTMLButtonElement>('#close-task-modal');
+  const cancelTaskModal = document.querySelector<HTMLButtonElement>('#cancel-task-modal');
   const taskForm = document.querySelector<HTMLFormElement>('#project-task-form');
+
+  openTaskModal?.addEventListener('click', () => taskModal?.showModal());
+  closeTaskModal?.addEventListener('click', () => taskModal?.close());
+  cancelTaskModal?.addEventListener('click', () => taskModal?.close());
   taskForm?.addEventListener('submit', () => {
     const dueAt = taskForm.elements.namedItem('dueAt') as HTMLInputElement | null;
     const dueAtIso = taskForm.elements.namedItem('dueAtIso') as HTMLInputElement | null;
@@ -196,9 +216,16 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .task-link { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task-link:hover { border-color: #7faa8c; }
   .task-link small { flex: none; color: #58665c; }
-  .quick-add { display: grid; gap: 0.8rem; margin-top: 1rem; }
-  .quick-add .button { justify-self: start; }
+  .add-task-button { margin-top: 1rem; }
+  .task-modal { width: min(36rem, calc(100% - 2rem)); border: 0; border-radius: 0.9rem; padding: 0; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
+  .task-modal::backdrop { background: rgb(20 35 25 / 0.45); }
+  .quick-add { display: grid; gap: 0.8rem; padding: 1.25rem; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .modal-header h2 { margin: 0; }
+  .modal-close { border: 0; border-radius: 0.4rem; padding: 0.1rem 0.45rem; background: transparent; color: #58665c; cursor: pointer; font-size: 1.8rem; line-height: 1; }
+  .modal-close:hover { background: #edf5ee; color: #27583b; }
   .quick-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
   .archive-panel { margin-top: 1.5rem; border-top: 1px solid #dce2da; padding-top: 1rem; }
   .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
   .archive-panel p { color: #58665c; line-height: 1.5; }
