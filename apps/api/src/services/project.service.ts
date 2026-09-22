@@ -81,6 +81,10 @@ export class ProjectService {
     return this.projectRepository.list(options);
   }
 
+  get(id: string): Promise<Project> {
+    return this.requireProject(this.projectRepository.findById(id), id);
+  }
+
   search(query: string): Promise<Project[]> {
     const normalizedQuery = query.trim();
 

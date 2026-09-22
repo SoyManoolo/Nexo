@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import {
   CreateProjectInputSchema,
   ListProjectsQuerySchema,
+  ProjectIdParamsSchema,
+  UpdateProjectInputSchema,
 } from '@nexo/contracts';
 import { ProjectService } from '../services/project.service.js';
 
@@ -39,6 +41,45 @@ export function createProjectsRoute(projectService = new ProjectService()): Hono
 
     const projects = await projectService.list(query.data);
     return context.json(projects);
+  });
+
+  projectsRoute.get('/:id', async (context) => {
+    const params = ProjectIdParamsSchema.safeParse(context.req.param());
+
+    if (!params.success) {
+      return context.json({ error: 'validation_error', message: 'Invalid project ID' }, 400);
+    }
+
+    const project = await projectService.get(params.data.id);
+    return context.json(project);
+  });
+
+  projectsRoute.patch('/:id', async (context) => {
+    const params = ProjectIdParamsSchema.safeParse(context.req.param());
+
+    if (!params.success) {
+      return context.json({ error: 'validation_error', message: 'Invalid project ID' }, 400);
+    }
+
+    let body: unknown;
+
+    try {
+      body = await context.req.json();
+    } catch {
+      return context.json(
+        { error: 'validation_error', message: 'Request body must be valid JSON' },
+        400,
+      );
+    }
+
+    const input = UpdateProjectInputSchema.safeParse(body);
+
+    if (!input.success) {
+      return context.json({ error: 'validation_error', message: 'Invalid project data' }, 400);
+    }
+
+    const project = await projectService.update(params.data.id, input.data);
+    return context.json(project);
   });
 
   return projectsRoute;

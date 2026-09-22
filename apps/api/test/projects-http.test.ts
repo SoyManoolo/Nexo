@@ -51,12 +51,24 @@ class InMemoryProjectRepository {
     return [];
   }
 
-  async findById(): Promise<Project | null> {
-    return null;
+  async findById(id: string): Promise<Project | null> {
+    return this.projects.find((item) => item.id === id) ?? null;
   }
 
-  async update(): Promise<Project | null> {
-    return null;
+  async update(id: string, input: Partial<Pick<Project, 'name' | 'description' | 'color'>>): Promise<Project | null> {
+    const index = this.projects.findIndex((item) => item.id === id);
+
+    if (index === -1) {
+      return null;
+    }
+
+    const updated = {
+      ...this.projects[index],
+      ...input,
+      updatedAt: '2026-01-05T00:00:00.000Z',
+    };
+    this.projects[index] = updated;
+    return updated;
   }
 
   async archive(): Promise<Project | null> {
@@ -104,4 +116,78 @@ test('GET /projects rejects an invalid status', async () => {
   const response = await request('/projects?status=unknown');
 
   assert.equal(response.status, 400);
+});
+
+test('GET /projects/:id returns an existing project', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440001');
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).name, 'Active project');
+});
+
+test('GET /projects/:id returns 404 for a missing project', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440099');
+
+  assert.equal(response.status, 404);
+});
+
+test('GET /projects/:id rejects an invalid UUID', async () => {
+  const response = await request('/projects/not-a-uuid');
+
+  assert.equal(response.status, 400);
+});
+
+test('PATCH /projects/:id updates the name', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440001', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Renamed project' }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).name, 'Renamed project');
+});
+
+test('PATCH /projects/:id clears description and color', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440001', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ description: null, color: null }),
+  });
+  const updated = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(updated.description, null);
+  assert.equal(updated.color, null);
+  assert.equal(updated.updatedAt, '2026-01-05T00:00:00.000Z');
+});
+
+test('PATCH /projects/:id rejects an empty body', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440001', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+
+  assert.equal(response.status, 400);
+});
+
+test('PATCH /projects/:id rejects an invalid color', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440001', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ color: 'red' }),
+  });
+
+  assert.equal(response.status, 400);
+});
+
+test('PATCH /projects/:id returns 404 for a missing project', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440099', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Missing project' }),
+  });
+
+  assert.equal(response.status, 404);
 });
