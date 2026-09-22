@@ -1,25 +1,72 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { createApiClient } from '../lib/api';
+import type { Project } from '@nexo/contracts';
+
+let projects: Project[] = [];
+let errorMessage: string | null = null;
+
+try {
+  projects = await createApiClient().listProjects({ status: 'active' });
+} catch (error) {
+  console.error('No se pudieron cargar los proyectos:', error);
+  errorMessage = error instanceof Error && error.message.includes('API_BASE_URL')
+    ? error.message
+    : 'No hemos podido conectar con la API. Comprueba que esté en marcha y vuelve a intentarlo.';
+}
 ---
 
-<BaseLayout title="Nexo">
+<BaseLayout title="Proyectos · Nexo">
   <main>
-    <p class="eyebrow">NEXO</p>
-    <h1>Decide qué hacer ahora.</h1>
-    <p class="intro">Tu espacio personal para proyectos y tareas. La primera versión de Nexo ya está en marcha.</p>
-    <section aria-label="Próximos pasos">
-      <h2>Próximos pasos</h2>
-      <ol><li>Definir proyectos y tareas.</li><li>Construir la vista de Inbox y Hoy.</li><li>Conectar Nexo a Codex mediante MCP.</li></ol>
-    </section>
+    <header>
+      <p class="eyebrow">NEXO / PROYECTOS</p>
+      <h1>Tus proyectos</h1>
+      <p class="intro">Un lugar para ver lo que tienes entre manos.</p>
+    </header>
+
+    {errorMessage ? (
+      <section class="notice" role="alert">
+        <h2>Proyectos no disponibles</h2>
+        <p>{errorMessage}</p>
+        <a href="/">Volver a intentar</a>
+      </section>
+    ) : projects.length === 0 ? (
+      <section class="notice">
+        <h2>Aún no tienes proyectos</h2>
+        <p>Los proyectos que crees aparecerán aquí. Pronto podrás crearlos desde esta vista.</p>
+      </section>
+    ) : (
+      <section aria-label="Proyectos activos">
+        <ul class="projects">
+          {projects.map((project) => (
+            <li>
+              <article class="project">
+                <span class="project-color" style={`background-color: ${project.color ?? '#4d8564'}`} aria-hidden="true"></span>
+                <div>
+                  <h2>{project.name}</h2>
+                  {project.description && <p>{project.description}</p>}
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
   </main>
 </BaseLayout>
 
 <style>
-  main { display: grid; align-content: center; min-height: 100vh; max-width: 48rem; padding: 3rem 1.5rem; margin: 0 auto; }
+  main { width: min(100% - 2rem, 54rem); margin: 0 auto; padding: 4rem 0 6rem; }
+  header { margin-bottom: 2.5rem; }
   .eyebrow { margin: 0 0 1rem; color: #3d7655; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.16em; }
-  h1 { max-width: 12ch; margin: 0; font-size: clamp(3rem, 10vw, 5.5rem); line-height: 0.98; letter-spacing: -0.06em; }
-  .intro { max-width: 38rem; margin: 1.75rem 0 3rem; color: #526159; font-size: 1.2rem; line-height: 1.6; }
-  section { padding: 1.5rem; border: 1px solid #dce2da; border-radius: 1rem; background: #fff; }
-  h2 { margin: 0 0 1rem; font-size: 1rem; }
-  ol { display: grid; gap: 0.75rem; padding-left: 1.5rem; margin: 0; color: #526159; line-height: 1.45; }
+  h1 { margin: 0; font-size: clamp(2.5rem, 8vw, 4.5rem); line-height: 1.05; letter-spacing: -0.05em; }
+  .intro { margin: 1rem 0 0; color: #526159; font-size: 1.1rem; line-height: 1.5; }
+  .notice, .project { border: 1px solid #dce2da; border-radius: 1rem; background: #fff; }
+  .notice { padding: 2rem; }
+  .notice h2, .project h2 { margin: 0; font-size: 1.2rem; }
+  .notice p, .project p { margin: 0.75rem 0 0; color: #526159; line-height: 1.5; }
+  .notice a { display: inline-block; margin-top: 1.5rem; color: #27684a; font-weight: 650; }
+  .projects { display: grid; gap: 0.9rem; margin: 0; padding: 0; list-style: none; }
+  .project { display: flex; align-items: flex-start; gap: 1rem; padding: 1.4rem; }
+  .project-color { flex: none; width: 0.8rem; height: 0.8rem; margin-top: 0.25rem; border-radius: 50%; }
 </style>

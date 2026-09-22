@@ -11,7 +11,7 @@ de negocio y contratos.
 ```text
 apps/
   web/          Interfaz Astro
-  api/          Backend HTTP y acceso a SQLite
+  api/          Backend HTTP y acceso a PostgreSQL
   mcp/          Adaptador MCP para Codex
 packages/
   contracts/    Tipos y esquemas compartidos
@@ -21,12 +21,27 @@ infra/          Configuración de despliegue
 
 ## Desarrollo
 
-```sh
-pnpm install
+Instala las dependencias con `pnpm install`. Para probar la web con datos reales, arranca
+PostgreSQL, aplica las migraciones y levanta API y web en dos terminales. En PowerShell:
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+docker compose up -d postgres
+$env:DATABASE_URL = 'postgresql://nexo:nexo@localhost:5432/nexo'
+pnpm --filter @nexo/api db:migrate
+pnpm dev:api
+```
+
+En otra terminal:
+
+```powershell
+if (-not (Test-Path apps/web/.env)) { Copy-Item apps/web/.env.example apps/web/.env }
 pnpm dev
 ```
 
-La web quedará disponible normalmente en `http://localhost:4321`.
+Abre `http://localhost:4321`. Astro consulta la API desde el servidor mediante
+`API_BASE_URL`; esta variable no se envía al navegador. Si tu PostgreSQL ya usa otra
+contraseña, ajusta `DATABASE_URL` a sus credenciales actuales antes de migrar.
 
 ```sh
 pnpm check
@@ -67,4 +82,4 @@ genera migraciones inversas automáticamente; para revertir una migración ya ap
 que crear y aplicar una nueva migración que deshaga sus cambios.
 
 El backend aplica las capas `routes → services → repositories → db`. El servidor MCP y la
-web consumirán la API privada; ninguno accederá directamente a SQLite.
+web consumirán la API privada; ninguno accederá directamente a PostgreSQL.

@@ -11,10 +11,13 @@
   },
   "dependencies": {
     "@astrojs/node": "^9.5.1",
+    "@nexo/api-client": "workspace:*",
+    "@nexo/contracts": "workspace:*",
     "astro": "^5.13.10"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@types/node": "^24.3.0",
     "typescript": "^5.9.2"
   }
 }
