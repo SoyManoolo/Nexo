@@ -1,0 +1,103 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { createApiClient } from '../../lib/api';
+import type { Project } from '@nexo/contracts';
+
+let projects: Project[] = [];
+let archived: Project[] = [];
+let errorMessage: string | null = null;
+const showArchived = Astro.url.searchParams.get('status') === 'archived';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  try {
+    await createApiClient().createProject({
+      name: String(form.get('name') ?? ''),
+      description: String(form.get('description') ?? '') || null,
+      color: String(form.get('color') ?? '') || null,
+    });
+    return Astro.redirect('/projects', 303);
+  } catch (error) {
+    console.error('No se pudo crear el proyecto:', error);
+    errorMessage = 'No se pudo crear el proyecto. Revisa los datos e inténtalo de nuevo.';
+    Astro.response.status = 400;
+  }
+}
+
+try {
+  [projects, archived] = await Promise.all([
+    createApiClient().listProjects({ status: 'active' }),
+    createApiClient().listProjects({ status: 'archived' }),
+  ]);
+} catch (error) {
+  console.error('No se pudieron cargar los proyectos:', error);
+  errorMessage ??= error instanceof Error && error.message.includes('API_BASE_URL')
+    ? error.message
+    : 'No hemos podido conectar con la API. Comprueba que esté en marcha y vuelve a intentarlo.';
+}
+
+const visibleProjects = showArchived ? archived : projects;
+---
+
+<AppLayout title="Proyectos · Nexo" section="projects">
+  <main class="page">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Tu espacio</p>
+        <h1>Proyectos</h1>
+        <p class="page-intro">Todo lo que tienes entre manos, en un solo lugar.</p>
+      </div>
+    </header>
+
+    {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/projects">Volver a intentar</a></div>}
+
+    <div class="project-layout">
+      <section aria-label="Lista de proyectos">
+        <div class="tabs">
+          <a href="/projects" aria-current={!showArchived ? 'page' : undefined}>Activos ({projects.length})</a>
+          <a href="/projects?status=archived" aria-current={showArchived ? 'page' : undefined}>Archivados ({archived.length})</a>
+        </div>
+        {!errorMessage && visibleProjects.length === 0 && (
+          <div class="notice"><h2>{showArchived ? 'No hay proyectos archivados' : 'Aún no tienes proyectos'}</h2><p>{showArchived ? 'Los proyectos que archives aparecerán aquí.' : 'Crea tu primer proyecto con el formulario.'}</p></div>
+        )}
+        <ul class="projects">
+          {visibleProjects.map((project) => (
+            <li>
+              <a class="project card" href={`/projects/${project.id}`}>
+                <span class="project-color" style={`background-color: ${project.color ?? '#4d8564'}`} aria-hidden="true"></span>
+                <span><strong>{project.name}</strong>{project.description && <small>{project.description}</small>}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+      {!showArchived && (
+        <section class="card" aria-labelledby="create-project-heading">
+          <h2 id="create-project-heading">Nuevo proyecto</h2>
+          <form method="post" class="form-grid">
+            <label class="field">Nombre <input name="name" required maxlength="120" autocomplete="off" /></label>
+            <label class="field">Descripción <textarea name="description" maxlength="2000"></textarea></label>
+            <label class="field">Color <input name="color" type="color" value="#4d8564" /></label>
+            <button class="button" type="submit">Crear proyecto</button>
+          </form>
+        </section>
+      )}
+    </div>
+  </main>
+</AppLayout>
+
+<style>
+  .project-layout { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: 1.3rem; align-items: start; }
+  .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dce2da; }
+  .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
+  .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
+  .projects { display: grid; gap: 0.7rem; padding: 0; margin: 0; list-style: none; }
+  .project { display: flex; align-items: center; gap: 0.9rem; text-decoration: none; }
+  .project:hover { border-color: #7faa8c; }
+  .project span:nth-child(2) { flex: 1; min-width: 0; }
+  .project strong, .project small { display: block; }
+  .project small { margin-top: 0.3rem; color: #58665c; line-height: 1.4; }
+  .project-color { width: 0.8rem; height: 0.8rem; border-radius: 50%; flex: none; }
+  @media (max-width: 950px) { .project-layout { grid-template-columns: 1fr; } }
+</style>
