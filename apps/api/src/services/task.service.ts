@@ -153,6 +153,18 @@ export class TaskService {
     return this.requireTask(this.taskRepository.update(id, normalizedInput), id);
   }
 
+  complete(id: string): Promise<Task> {
+    return this.update(id, { status: 'done' });
+  }
+
+  reopen(id: string): Promise<Task> {
+    return this.update(id, { status: 'next' });
+  }
+
+  moveToInbox(id: string): Promise<Task> {
+    return this.update(id, { projectId: null });
+  }
+
   private async validateProject(projectId: string | null | undefined): Promise<string | null> {
     if (projectId === undefined || projectId === null) {
       return projectId ?? null;

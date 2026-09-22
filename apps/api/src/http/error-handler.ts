@@ -1,5 +1,10 @@
 import type { Context } from 'hono';
 import { ProjectNotFoundError, ProjectValidationError } from '../services/project.service.js';
+import {
+  TaskNotFoundError,
+  TaskProjectNotFoundError,
+  TaskValidationError,
+} from '../services/task.service.js';
 
 type DatabaseError = Error & { code?: string };
 
@@ -13,6 +18,14 @@ export function handleApiError(error: Error, context: Context): Response {
   }
 
   if (error instanceof ProjectNotFoundError) {
+    return context.json({ error: 'not_found', message: error.message }, 404);
+  }
+
+  if (error instanceof TaskValidationError) {
+    return context.json({ error: 'validation_error', message: error.message }, 400);
+  }
+
+  if (error instanceof TaskProjectNotFoundError || error instanceof TaskNotFoundError) {
     return context.json({ error: 'not_found', message: error.message }, 404);
   }
 
