@@ -121,6 +121,8 @@ test('CreateTaskInputSchema enforces blocked and done state requirements', () =>
 test('UpdateTaskInputSchema requires at least one allowed field', () => {
   assert.throws(() => UpdateTaskInputSchema.parse({}));
   assert.deepEqual(UpdateTaskInputSchema.parse({ notes: null }), { notes: null });
+  assert.deepEqual(UpdateTaskInputSchema.parse({ pinned: true }), { pinned: true });
+  assert.throws(() => UpdateTaskInputSchema.parse({ pinned: 'yes' }));
   assert.throws(() => UpdateTaskInputSchema.parse({ id: '550e8400-e29b-41d4-a716-446655440000' }));
 });
 

@@ -49,16 +49,17 @@ test(
       );
       assert.equal(project.rows[0].status, 'active');
 
-      const task = await pool.query<{ project_id: string; status: string; priority: string }>(
+      const task = await pool.query<{ project_id: string; status: string; priority: string; pinned: boolean }>(
         `INSERT INTO tasks (project_id, title)
        VALUES ($1, 'schema-test-task')
-       RETURNING project_id, status, priority`,
+       RETURNING project_id, status, priority, pinned`,
         [project.rows[0].id],
       );
       assert.deepEqual(task.rows[0], {
         project_id: project.rows[0].id,
         status: 'inbox',
         priority: 'medium',
+        pinned: false,
       });
 
       await assert.rejects(

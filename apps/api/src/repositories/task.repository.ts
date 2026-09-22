@@ -28,6 +28,7 @@ function toTask(row: TaskRow): Task {
     projectId: row.projectId,
     status: row.status,
     priority: row.priority,
+    pinned: row.pinned,
     scheduledFor: row.scheduledFor,
     dueAt: row.dueAt?.toISOString() ?? null,
     startedAt: row.startedAt?.toISOString() ?? null,

@@ -143,6 +143,10 @@ export class TaskService {
       normalizedInput.priority = input.priority;
     }
 
+    if (input.pinned !== undefined) {
+      normalizedInput.pinned = input.pinned;
+    }
+
     if (input.scheduledFor !== undefined) {
       normalizedInput.scheduledFor = input.scheduledFor;
     }

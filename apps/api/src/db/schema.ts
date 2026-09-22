@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   date,
   index,
@@ -59,6 +60,7 @@ export const tasks = pgTable(
     notes: text('notes'),
     status: taskStatus('status').notNull().default('inbox'),
     priority: taskPriority('priority').notNull().default('medium'),
+    pinned: boolean('pinned').notNull().default(false),
     scheduledFor: date('scheduled_for'),
     dueAt: timestamp('due_at', { withTimezone: true }),
     startedAt: timestamp('started_at', { withTimezone: true }),
