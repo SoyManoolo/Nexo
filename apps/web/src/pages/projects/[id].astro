@@ -1,0 +1,129 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { createApiClient } from '../../lib/api';
+import { NexoApiNotFoundError } from '@nexo/api-client';
+import type { Project, Task } from '@nexo/contracts';
+
+const id = Astro.params.id ?? '';
+let project: Project | null = null;
+let tasks: Task[] = [];
+let errorMessage: string | null = null;
+let notFound = false;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const intent = String(form.get('intent') ?? '');
+  try {
+    const api = createApiClient();
+    if (intent === 'update') {
+      await api.updateProject(id, {
+        name: String(form.get('name') ?? ''),
+        description: String(form.get('description') ?? '') || null,
+        color: String(form.get('color') ?? '') || null,
+      });
+    } else if (intent === 'archive') {
+      await api.archiveProject(id);
+      return Astro.redirect('/projects?status=archived', 303);
+    } else if (intent === 'create-task') {
+      await api.createTask({ title: String(form.get('title') ?? ''), projectId: id });
+    } else {
+      throw new Error('Acción desconocida');
+    }
+    return Astro.redirect(`/projects/${id}`, 303);
+  } catch (error) {
+    console.error('No se pudo guardar el proyecto:', error);
+    errorMessage = 'No se pudieron guardar los cambios. Revisa los datos e inténtalo de nuevo.';
+    Astro.response.status = 400;
+  }
+}
+
+try {
+  const api = createApiClient();
+  [project, tasks] = await Promise.all([api.getProject(id), api.listTasks({ projectId: id })]);
+} catch (error) {
+  if (error instanceof NexoApiNotFoundError) {
+    notFound = true;
+    Astro.response.status = 404;
+  } else {
+    console.error('No se pudo cargar el proyecto:', error);
+    errorMessage ??= 'No se pudo cargar el proyecto. Comprueba la conexión con la API.';
+  }
+}
+---
+
+<AppLayout title={project ? `${project.name} · Nexo` : 'Proyecto · Nexo'} section="projects">
+  <main class="page">
+    <a class="back-link" href="/projects">← Todos los proyectos</a>
+    {notFound ? (
+      <div class="notice"><h1>Proyecto no encontrado</h1><p>Puede que haya sido eliminado o que el enlace no sea correcto.</p></div>
+    ) : project ? (
+      <>
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">{project.status === 'archived' ? 'Proyecto archivado' : 'Proyecto activo'}</p>
+            <h1>{project.name}</h1>
+            {project.description && <p class="page-intro">{project.description}</p>}
+          </div>
+        </header>
+        {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
+        <div class="detail-layout">
+          <section aria-labelledby="tasks-heading">
+            <h2 id="tasks-heading">Tareas <span class="muted">({tasks.length})</span></h2>
+            {tasks.length === 0 ? (
+              <div class="notice"><p>Este proyecto todavía no tiene tareas.</p></div>
+            ) : (
+              <ul class="task-list">
+                {tasks.map((task) => (
+                  <li><a class="card task-link" href={`/tasks/${task.id}`}><span>{task.title}</span><small>{task.status.replace('_', ' ')} · {task.priority}</small></a></li>
+                ))}
+              </ul>
+            )}
+            {project.status === 'active' && (
+              <form method="post" class="quick-add">
+                <input type="hidden" name="intent" value="create-task" />
+                <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" /></label>
+                <button class="button" type="submit">Añadir tarea</button>
+              </form>
+            )}
+          </section>
+          <aside class="card">
+            <h2>Detalles del proyecto</h2>
+            <form method="post" class="form-grid">
+              <input type="hidden" name="intent" value="update" />
+              <label class="field">Nombre <input name="name" required maxlength="120" value={project.name} /></label>
+              <label class="field">Descripción <textarea name="description" maxlength="2000">{project.description ?? ''}</textarea></label>
+              <label class="field">Color <input name="color" type="color" value={project.color ?? '#4d8564'} /></label>
+              <button class="button secondary" type="submit">Guardar cambios</button>
+            </form>
+            {project.status === 'active' && (
+              <details class="archive-panel">
+                <summary>Archivar proyecto</summary>
+                <p>Seguirás pudiendo consultarlo en la lista de archivados.</p>
+                <form method="post"><button class="button danger" name="intent" value="archive" type="submit">Confirmar archivado</button></form>
+              </details>
+            )}
+          </aside>
+        </div>
+      </>
+    ) : (
+      <div class="notice error" role="alert"><h1>Proyecto no disponible</h1><p>{errorMessage}</p><a href="/projects">Volver a intentar</a></div>
+    )}
+  </main>
+</AppLayout>
+
+<style>
+  .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
+  .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; align-items: start; gap: 1.3rem; }
+  h2 { margin: 0 0 1rem; font-size: 1.2rem; }
+  .task-list { display: grid; gap: 0.65rem; padding: 0; margin: 0; list-style: none; }
+  .task-link { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
+  .task-link:hover { border-color: #7faa8c; }
+  .task-link small { flex: none; color: #58665c; }
+  .quick-add { display: flex; align-items: end; gap: 0.6rem; margin-top: 1rem; }
+  .quick-add .field { flex: 1; }
+  .archive-panel { margin-top: 1.5rem; border-top: 1px solid #dce2da; padding-top: 1rem; }
+  .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
+  .archive-panel p { color: #58665c; line-height: 1.5; }
+  @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .quick-add, .task-link { flex-direction: column; align-items: stretch; } }
+</style>
