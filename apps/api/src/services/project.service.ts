@@ -8,6 +8,7 @@ import {
 
 const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 2_000;
+const COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 export class ProjectNotFoundError extends Error {
   constructor(id: string) {
@@ -53,6 +54,18 @@ function normalizeDescription(description: string | null | undefined): string | 
   return normalizedDescription || null;
 }
 
+function normalizeColor(color: string | null | undefined): string | null {
+  if (color === undefined || color === null) {
+    return color ?? null;
+  }
+
+  if (!COLOR_PATTERN.test(color)) {
+    throw new ProjectValidationError('Project color must be a six-digit hexadecimal value');
+  }
+
+  return color;
+}
+
 export class ProjectService {
   constructor(private readonly projectRepository = new ProjectRepository()) {}
 
@@ -60,6 +73,7 @@ export class ProjectService {
     return this.projectRepository.create({
       name: normalizeName(input.name),
       description: normalizeDescription(input.description),
+      color: normalizeColor(input.color),
     });
   }
 
@@ -86,6 +100,10 @@ export class ProjectService {
 
     if (input.description !== undefined) {
       normalizedInput.description = normalizeDescription(input.description);
+    }
+
+    if (input.color !== undefined) {
+      normalizedInput.color = normalizeColor(input.color);
     }
 
     if (Object.keys(normalizedInput).length === 0) {

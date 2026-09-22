@@ -1,24 +1,18 @@
 import type { Project, ProjectStatus } from '@nexo/contracts';
-import { databasePool } from '../db/index.js';
-
-type ProjectRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  status: ProjectStatus;
-  created_at: Date | string;
-  updated_at: Date | string;
-  archived_at?: Date | string | null;
-};
+import { desc, eq, ilike, or } from 'drizzle-orm';
+import { db } from '../db/index.js';
+import { projects, type ProjectRow } from '../db/schema.js';
 
 export type CreateProjectInput = {
   name: string;
   description?: string | null;
+  color?: string | null;
 };
 
 export type UpdateProjectInput = {
   name?: string;
   description?: string | null;
+  color?: string | null;
 };
 
 export type ListProjectsOptions = {
@@ -30,112 +24,68 @@ function toProject(row: ProjectRow): Project {
     id: row.id,
     name: row.name,
     description: row.description,
+    color: row.color,
     status: row.status,
-    createdAt: new Date(row.created_at).toISOString(),
-    updatedAt: new Date(row.updated_at).toISOString(),
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
 export class ProjectRepository {
   async create(input: CreateProjectInput): Promise<Project> {
-    const result = await databasePool.query<ProjectRow>(
-      `
-        INSERT INTO projects (name, description)
-        VALUES ($1, $2)
-        RETURNING id, name, description, status, created_at, updated_at
-      `,
-      [input.name, input.description ?? null],
-    );
-
-    return toProject(result.rows[0]);
+    const [project] = await db.insert(projects).values(input).returning();
+    return toProject(project);
   }
 
   async list(options: ListProjectsOptions = {}): Promise<Project[]> {
-    const result = await databasePool.query<ProjectRow>(
-      `
-        SELECT id, name, description, status, created_at, updated_at
-        FROM projects
-        WHERE ($1::text IS NULL OR status = $1)
-        ORDER BY updated_at DESC, id DESC
-      `,
-      [options.status ?? null],
-    );
+    const rows = await db
+      .select()
+      .from(projects)
+      .where(options.status ? eq(projects.status, options.status) : undefined)
+      .orderBy(desc(projects.updatedAt), desc(projects.id));
 
-    return result.rows.map(toProject);
+    return rows.map(toProject);
   }
 
   async search(query: string): Promise<Project[]> {
-    const result = await databasePool.query<ProjectRow>(
-      `
-        SELECT id, name, description, status, created_at, updated_at
-        FROM projects
-        WHERE name ILIKE $1 OR description ILIKE $1
-        ORDER BY updated_at DESC, id DESC
-      `,
-      [`%${query}%`],
-    );
+    const pattern = `%${query}%`;
+    const rows = await db
+      .select()
+      .from(projects)
+      .where(or(ilike(projects.name, pattern), ilike(projects.description, pattern)))
+      .orderBy(desc(projects.updatedAt), desc(projects.id));
 
-    return result.rows.map(toProject);
+    return rows.map(toProject);
   }
 
   async findById(id: string): Promise<Project | null> {
-    const result = await databasePool.query<ProjectRow>(
-      `
-        SELECT id, name, description, status, created_at, updated_at
-        FROM projects
-        WHERE id = $1
-      `,
-      [id],
-    );
-
-    return result.rows[0] ? toProject(result.rows[0]) : null;
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project ? toProject(project) : null;
   }
 
   async update(id: string, input: UpdateProjectInput): Promise<Project | null> {
-    const fields: string[] = [];
-    const values: unknown[] = [id];
-
-    if (input.name !== undefined) {
-      values.push(input.name);
-      fields.push(`name = $${values.length}`);
-    }
-
-    if (input.description !== undefined) {
-      values.push(input.description);
-      fields.push(`description = $${values.length}`);
-    }
-
-    if (fields.length === 0) {
+    if (Object.keys(input).length === 0) {
       return this.findById(id);
     }
 
-    values.push(new Date());
-    fields.push(`updated_at = $${values.length}`);
+    const [project] = await db
+      .update(projects)
+      .set({ ...input, updatedAt: new Date() })
+      .where(eq(projects.id, id))
+      .returning();
 
-    const result = await databasePool.query<ProjectRow>(
-      `
-        UPDATE projects
-        SET ${fields.join(', ')}
-        WHERE id = $1
-        RETURNING id, name, description, status, created_at, updated_at
-      `,
-      values,
-    );
-
-    return result.rows[0] ? toProject(result.rows[0]) : null;
+    return project ? toProject(project) : null;
   }
 
   async archive(id: string): Promise<Project | null> {
-    const result = await databasePool.query<ProjectRow>(
-      `
-        UPDATE projects
-        SET status = 'archived', archived_at = $2, updated_at = $2
-        WHERE id = $1
-        RETURNING id, name, description, status, created_at, updated_at
-      `,
-      [id, new Date()],
-    );
+    const now = new Date();
+    const [project] = await db
+      .update(projects)
+      .set({ status: 'archived', archivedAt: now, updatedAt: now })
+      .where(eq(projects.id, id))
+      .returning();
 
-    return result.rows[0] ? toProject(result.rows[0]) : null;
+    return project ? toProject(project) : null;
   }
 }
