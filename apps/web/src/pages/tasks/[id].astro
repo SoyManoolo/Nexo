@@ -29,6 +29,8 @@ if (Astro.request.method === 'POST') {
       await api.reopenTask(id);
     } else if (intent === 'move-to-inbox') {
       await api.moveTaskToInbox(id);
+    } else if (intent === 'pin' || intent === 'unpin') {
+      await api.updateTask(id, { pinned: intent === 'pin' });
     } else if (intent === 'save') {
       const current = await api.getTask(id);
       const status = String(form.get('status') ?? 'inbox') as TaskStatus;
@@ -144,6 +146,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
           </section>
           <aside class="card actions">
             <h2>Acciones rápidas</h2>
+            <form method="post"><button class="button secondary" type="submit" name="intent" value={task.pinned ? 'unpin' : 'pin'}>{task.pinned ? 'Desanclar de inicio' : 'Anclar en inicio'}</button></form>
             {task.status === 'done' ? (
               <form method="post"><button class="button secondary" type="submit" name="intent" value="reopen">Reabrir tarea</button></form>
             ) : (

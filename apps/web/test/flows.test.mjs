@@ -14,7 +14,7 @@ const makeProject = (body) => ({
 });
 const makeTask = (body) => ({
   id: randomUUID(), title: body.title, notes: null, projectId: null, status: 'inbox',
-  priority: 'medium', scheduledFor: null, dueAt: null, startedAt: null,
+  priority: 'medium', pinned: false, scheduledFor: null, dueAt: null, startedAt: null,
   completedAt: null, blockedReason: null, createdAt: now, updatedAt: now,
 });
 async function listen(server) {
@@ -61,6 +61,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
         }
       } else if (task) {
         value = tasks.find((item) => item.id === task[1]);
+        if (value && req.method === 'PATCH') Object.assign(value, body);
         if (value && task[2] && req.method === 'POST') {
           value.status = task[2] === '/complete' ? 'done' : 'inbox';
           value.completedAt = task[2] === '/complete' ? now : null;
@@ -117,6 +118,11 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
   assert.equal(calls.find((call) => call.method === 'POST' && call.path === '/tasks').body.title,
     'Tarea capturada');
+
+  assert.equal((await submit(`/tasks/${tasks[0].id}`, { intent: 'pin' })).status, 303);
+  assert.equal(tasks[0].pinned, true);
+  assert.equal((await submit(`/tasks/${tasks[0].id}`, { intent: 'unpin' })).status, 303);
+  assert.equal(tasks[0].pinned, false);
 
   assert.equal((await submit('/inbox', { intent: 'complete', taskId: tasks[0].id })).status, 303);
   assert.equal(tasks[0].status, 'done');
