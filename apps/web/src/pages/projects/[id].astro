@@ -1,6 +1,7 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import { createApiClient } from '../../lib/api';
+import { isSameOrigin } from '../../lib/security';
 import { NexoApiNotFoundError } from '@nexo/api-client';
 import type { Project, Task } from '@nexo/contracts';
 
@@ -19,6 +20,9 @@ const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
   : undefined;
 
 if (Astro.request.method === 'POST') {
+  if (!isSameOrigin(Astro.request, Astro.url)) {
+    return new Response('Origen no permitido', { status: 403 });
+  }
   const form = await Astro.request.formData();
   const intent = String(form.get('intent') ?? '');
   try {
