@@ -1,0 +1,142 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { createApiClient } from '../../lib/api';
+import { NexoApiNotFoundError } from '@nexo/api-client';
+import type { Project, Task, TaskStatus } from '@nexo/contracts';
+
+const id = Astro.params.id ?? '';
+let task: Task | null = null;
+let projects: Project[] = [];
+let errorMessage: string | null = null;
+let notFound = false;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const intent = String(form.get('intent') ?? '');
+  try {
+    const api = createApiClient();
+    if (intent === 'complete') {
+      await api.completeTask(id);
+    } else if (intent === 'reopen') {
+      await api.reopenTask(id);
+    } else if (intent === 'move-to-inbox') {
+      await api.moveTaskToInbox(id);
+    } else if (intent === 'save') {
+      const current = await api.getTask(id);
+      const status = String(form.get('status') ?? 'inbox') as TaskStatus;
+      const dueAt = String(form.get('dueAt') ?? '');
+      await api.updateTask(id, {
+        title: String(form.get('title') ?? ''),
+        notes: String(form.get('notes') ?? '') || null,
+        projectId: String(form.get('projectId') ?? '') || null,
+        status,
+        priority: String(form.get('priority') ?? 'medium') as Task['priority'],
+        scheduledFor: String(form.get('scheduledFor') ?? '') || null,
+        dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+        blockedReason: status === 'blocked' ? String(form.get('blockedReason') ?? '') : null,
+        completedAt: status === 'done' ? current.completedAt ?? new Date().toISOString() : null,
+      });
+    } else {
+      throw new Error('Acción desconocida');
+    }
+    return Astro.redirect(`/tasks/${id}`, 303);
+  } catch (error) {
+    console.error('No se pudo guardar la tarea:', error);
+    errorMessage = 'No se pudieron guardar los cambios. Revisa los campos e inténtalo de nuevo.';
+    Astro.response.status = 400;
+  }
+}
+
+try {
+  const api = createApiClient();
+  [task, projects] = await Promise.all([
+    api.getTask(id),
+    Promise.all([api.listProjects({ status: 'active' }), api.listProjects({ status: 'archived' })]).then(([active, archived]) => [...active, ...archived]),
+  ]);
+} catch (error) {
+  if (error instanceof NexoApiNotFoundError) {
+    notFound = true;
+    Astro.response.status = 404;
+  } else {
+    console.error('No se pudo cargar la tarea:', error);
+    errorMessage ??= 'No se pudo cargar la tarea. Comprueba la conexión con la API.';
+  }
+}
+
+const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
+---
+
+<AppLayout title={task ? `${task.title} · Nexo` : 'Tarea · Nexo'} section={task?.projectId ? 'projects' : 'inbox'}>
+  <main class="page">
+    <a class="back-link" href={backHref}>← Volver</a>
+    {notFound ? (
+      <div class="notice"><h1>Tarea no encontrada</h1><p>Comprueba el enlace e inténtalo de nuevo.</p></div>
+    ) : task ? (
+      <>
+        <header class="page-header"><div><p class="eyebrow">{task.status.replace('_', ' ')}</p><h1>{task.title}</h1></div></header>
+        {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
+        <div class="task-layout">
+          <section class="card">
+            <h2>Detalles de la tarea</h2>
+            <form method="post" class="form-grid">
+              <input type="hidden" name="intent" value="save" />
+              <label class="field">Título <input name="title" required maxlength="200" value={task.title} /></label>
+              <label class="field">Notas <textarea name="notes" maxlength="2000">{task.notes ?? ''}</textarea></label>
+              <label class="field">Proyecto
+                <select name="projectId">
+                  <option value="" selected={task.projectId === null}>Sin proyecto (inbox)</option>
+                  {projects.map((project) => <option value={project.id} selected={task.projectId === project.id} disabled={project.status === 'archived' && task.projectId !== project.id}>{project.name}{project.status === 'archived' ? ' (archivado)' : ''}</option>)}
+                </select>
+              </label>
+              <div class="field-pair">
+                <label class="field">Estado
+                  <select name="status">
+                    <option value="inbox" selected={task.status === 'inbox'}>Inbox</option>
+                    <option value="next" selected={task.status === 'next'}>Siguiente</option>
+                    <option value="in_progress" selected={task.status === 'in_progress'}>En curso</option>
+                    <option value="blocked" selected={task.status === 'blocked'}>Bloqueada</option>
+                    <option value="done" selected={task.status === 'done'}>Completada</option>
+                  </select>
+                </label>
+                <label class="field">Prioridad
+                  <select name="priority">
+                    <option value="low" selected={task.priority === 'low'}>Baja</option>
+                    <option value="medium" selected={task.priority === 'medium'}>Media</option>
+                    <option value="high" selected={task.priority === 'high'}>Alta</option>
+                  </select>
+                </label>
+              </div>
+              <div class="field-pair">
+                <label class="field">Programada para <input name="scheduledFor" type="date" value={task.scheduledFor ?? ''} /></label>
+                <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={task.dueAt?.slice(0, 16) ?? ''} /></label>
+              </div>
+              <label class="field">Motivo de bloqueo <input name="blockedReason" value={task.blockedReason ?? ''} placeholder="Necesario para el estado bloqueada" /></label>
+              <button class="button" type="submit">Guardar cambios</button>
+            </form>
+          </section>
+          <aside class="card actions">
+            <h2>Acciones rápidas</h2>
+            {task.status === 'done' ? (
+              <form method="post"><button class="button secondary" type="submit" name="intent" value="reopen">Reabrir tarea</button></form>
+            ) : (
+              <form method="post"><button class="button" type="submit" name="intent" value="complete">Completar tarea</button></form>
+            )}
+            {task.projectId && <form method="post"><button class="button secondary" type="submit" name="intent" value="move-to-inbox">Mover al inbox</button></form>}
+          </aside>
+        </div>
+      </>
+    ) : (
+      <div class="notice error" role="alert"><h1>Tarea no disponible</h1><p>{errorMessage}</p></div>
+    )}
+  </main>
+</AppLayout>
+
+<style>
+  .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
+  .task-layout { display: grid; grid-template-columns: minmax(0, 1fr) 14rem; gap: 1.3rem; align-items: start; }
+  .field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .actions { display: grid; gap: 0.8rem; }
+  .actions form, .actions button { width: 100%; }
+  @media (max-width: 900px) { .task-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .field-pair { grid-template-columns: 1fr; } }
+</style>

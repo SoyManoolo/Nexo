@@ -1,0 +1,46 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import { createApiClient } from '../lib/api';
+import type { Task } from '@nexo/contracts';
+
+let tasks: Task[] = [];
+let errorMessage: string | null = null;
+const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
+const localDay = (value: string) => new Intl.DateTimeFormat('sv-SE').format(new Date(value));
+
+try {
+  tasks = (await createApiClient().listTasks()).filter((task) =>
+    task.status !== 'done' && (
+      (task.scheduledFor !== null && task.scheduledFor <= today) ||
+      (task.dueAt !== null && localDay(task.dueAt) <= today)
+    ),
+  );
+} catch (error) {
+  console.error('No se pudieron cargar las tareas de hoy:', error);
+  errorMessage = 'No se pudo conectar con la API. Vuelve a intentarlo.';
+}
+---
+
+<AppLayout title="Hoy · Nexo" section="today">
+  <main class="page">
+    <header class="page-header"><div><p class="eyebrow">En foco</p><h1>Hoy</h1><p class="page-intro">Tareas programadas para hoy o antes, y tareas vencidas.</p></div></header>
+    {errorMessage ? (
+      <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/today">Volver a intentar</a></div>
+    ) : tasks.length === 0 ? (
+      <div class="notice"><h2>Todo al día</h2><p>No hay tareas programadas ni vencidas para hoy.</p></div>
+    ) : (
+      <ul class="tasks">
+        {tasks.map((task) => (
+          <li><a class="task card" href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.dueAt && localDay(task.dueAt) <= today ? 'Fecha límite' : 'Programada'} · {task.priority}</small></a></li>
+        ))}
+      </ul>
+    )}
+  </main>
+</AppLayout>
+
+<style>
+  .tasks { display: grid; gap: 0.7rem; padding: 0; margin: 0; list-style: none; }
+  .task { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
+  .task:hover { border-color: #7faa8c; }
+  .task small { color: #58665c; }
+</style>

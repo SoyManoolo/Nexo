@@ -1,0 +1,67 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import { createApiClient } from '../lib/api';
+import type { Task } from '@nexo/contracts';
+
+let tasks: Task[] = [];
+let errorMessage: string | null = null;
+const showDone = Astro.url.searchParams.get('status') === 'done';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  try {
+    await createApiClient().createTask({ title: String(form.get('title') ?? '') });
+    return Astro.redirect('/inbox', 303);
+  } catch (error) {
+    console.error('No se pudo crear la tarea:', error);
+    errorMessage = 'No se pudo crear la tarea. Comprueba el título y vuelve a intentarlo.';
+    Astro.response.status = 400;
+  }
+}
+
+try {
+  tasks = (await createApiClient().listTasks()).filter((task) =>
+    task.projectId === null && (showDone ? task.status === 'done' : task.status !== 'done'),
+  );
+} catch (error) {
+  console.error('No se pudo cargar el inbox:', error);
+  errorMessage ??= 'No se pudo conectar con la API. Vuelve a intentarlo.';
+}
+---
+
+<AppLayout title="Inbox · Nexo" section="inbox">
+  <main class="page">
+    <header class="page-header"><div><p class="eyebrow">Captura rápida</p><h1>Inbox</h1><p class="page-intro">Anota lo que tienes en mente. Organízalo después.</p></div></header>
+    {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/inbox">Volver a intentar</a></div>}
+
+    <form class="capture card" method="post">
+      <label class="field">Nueva tarea <input name="title" maxlength="200" required placeholder="¿Qué tienes pendiente?" autocomplete="off" /></label>
+      <button class="button" type="submit">Añadir al inbox</button>
+    </form>
+
+    <div class="tabs">
+      <a href="/inbox" aria-current={!showDone ? 'page' : undefined}>Pendientes</a>
+      <a href="/inbox?status=done" aria-current={showDone ? 'page' : undefined}>Completadas</a>
+    </div>
+    {!errorMessage && tasks.length === 0 && <div class="notice"><h2>{showDone ? 'Nada completado todavía' : 'Inbox vacío'}</h2><p>{showDone ? 'Las tareas que completes aparecerán aquí.' : 'Cuando captures una tarea, aparecerá aquí.'}</p></div>}
+    <ul class="tasks">
+      {tasks.map((task) => (
+        <li><a class="task card" href={`/tasks/${task.id}`}><span><strong>{task.title}</strong>{task.notes && <small>{task.notes}</small>}</span><small>{task.status.replace('_', ' ')} · {task.priority}</small></a></li>
+      ))}
+    </ul>
+  </main>
+</AppLayout>
+
+<style>
+  .capture { display: flex; align-items: end; gap: 0.7rem; margin-bottom: 2rem; }
+  .capture .field { flex: 1; }
+  .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dce2da; }
+  .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
+  .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
+  .tasks { display: grid; gap: 0.7rem; padding: 0; margin: 0; list-style: none; }
+  .task { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
+  .task:hover { border-color: #7faa8c; }
+  .task small { color: #58665c; }
+  .task span small { display: block; margin-top: 0.3rem; }
+  @media (max-width: 600px) { .capture, .task { flex-direction: column; align-items: stretch; } }
+</style>
