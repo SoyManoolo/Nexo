@@ -26,6 +26,8 @@ if (Astro.request.method === 'POST') {
       const status = String(form.get('status') ?? 'inbox') as TaskStatus;
       const dueAt = String(form.get('dueAt') ?? '');
       const dueAtIso = String(form.get('dueAtIso') ?? '');
+      const startedAt = String(form.get('startedAt') ?? '');
+      const startedAtIso = String(form.get('startedAtIso') ?? '');
       const selectedProjectId = String(form.get('projectId') ?? '') || null;
       await api.updateTask(id, {
         title: String(form.get('title') ?? ''),
@@ -35,6 +37,7 @@ if (Astro.request.method === 'POST') {
         priority: String(form.get('priority') ?? 'medium') as Task['priority'],
         scheduledFor: String(form.get('scheduledFor') ?? '') || null,
         dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
+        startedAt: startedAt ? startedAtIso || new Date(startedAt).toISOString() : null,
         blockedReason: status === 'blocked' ? String(form.get('blockedReason') ?? '') : null,
         completedAt: status === 'done' ? current.completedAt ?? new Date().toISOString() : null,
       });
@@ -51,10 +54,7 @@ if (Astro.request.method === 'POST') {
 
 try {
   const api = createApiClient();
-  [task, projects] = await Promise.all([
-    api.getTask(id),
-    Promise.all([api.listProjects({ status: 'active' }), api.listProjects({ status: 'archived' })]).then(([active, archived]) => [...active, ...archived]),
-  ]);
+  task = await api.getTask(id);
 } catch (error) {
   if (error instanceof NexoApiNotFoundError) {
     notFound = true;
@@ -62,6 +62,20 @@ try {
   } else {
     console.error('No se pudo cargar la tarea:', error);
     errorMessage ??= 'No se pudo cargar la tarea. Comprueba la conexión con la API.';
+  }
+}
+
+if (task) {
+  try {
+    const api = createApiClient();
+    const [active, archived] = await Promise.all([
+      api.listProjects({ status: 'active' }),
+      api.listProjects({ status: 'archived' }),
+    ]);
+    projects = [...active, ...archived];
+  } catch (error) {
+    console.error('No se pudieron cargar los proyectos para la tarea:', error);
+    errorMessage ??= 'La tarea está disponible, pero no se pudo cargar la lista de proyectos.';
   }
 }
 
@@ -113,6 +127,8 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
                 <label class="field">Fecha límite <input name="dueAt" id="task-due-at" type="datetime-local" value={task.dueAt?.slice(0, 16) ?? ''} data-iso={task.dueAt ?? ''} /></label>
               </div>
               <input name="dueAtIso" id="task-due-at-iso" type="hidden" />
+              <label class="field">Inicio <input name="startedAt" id="task-started-at" type="datetime-local" value={task.startedAt?.slice(0, 16) ?? ''} data-iso={task.startedAt ?? ''} /></label>
+              <input name="startedAtIso" id="task-started-at-iso" type="hidden" />
               <label class="field" id="blocked-reason-field">Motivo de bloqueo <input name="blockedReason" value={task.blockedReason ?? ''} placeholder="¿Qué estás esperando?" /></label>
               <button class="button" type="submit">Guardar cambios</button>
             </form>
@@ -141,13 +157,19 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
   const blockedInput = blockedField?.querySelector<HTMLInputElement>('input');
   const dueAt = document.querySelector<HTMLInputElement>('#task-due-at');
   const dueAtIso = document.querySelector<HTMLInputElement>('#task-due-at-iso');
+  const startedAt = document.querySelector<HTMLInputElement>('#task-started-at');
+  const startedAtIso = document.querySelector<HTMLInputElement>('#task-started-at-iso');
 
-  if (dueAt?.dataset.iso) {
-    const date = new Date(dueAt.dataset.iso);
-    dueAt.value = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  function displayLocalTime(input: HTMLInputElement | null) {
+    if (!input?.dataset.iso) return;
+    const date = new Date(input.dataset.iso);
+    input.value = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
       .toISOString()
       .slice(0, 16);
   }
+
+  displayLocalTime(dueAt);
+  displayLocalTime(startedAt);
 
   function syncBlockedReason() {
     const isBlocked = status?.value === 'blocked';
@@ -159,6 +181,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
   syncBlockedReason();
   form?.addEventListener('submit', () => {
     if (dueAtIso && dueAt) dueAtIso.value = dueAt.value ? new Date(dueAt.value).toISOString() : '';
+    if (startedAtIso && startedAt) startedAtIso.value = startedAt.value ? new Date(startedAt.value).toISOString() : '';
   });
 </script>
 

@@ -47,7 +47,7 @@ if (Astro.request.method === 'POST') {
 
 try {
   const api = createApiClient();
-  [project, tasks] = await Promise.all([api.getProject(id), api.listTasks({ projectId: id, status: statusFilter, priority: priorityFilter })]);
+  project = await api.getProject(id);
 } catch (error) {
   if (error instanceof NexoApiNotFoundError) {
     notFound = true;
@@ -55,6 +55,15 @@ try {
   } else {
     console.error('No se pudo cargar el proyecto:', error);
     errorMessage ??= 'No se pudo cargar el proyecto. Comprueba la conexión con la API.';
+  }
+}
+
+if (project) {
+  try {
+    tasks = await createApiClient().listTasks({ projectId: id, status: statusFilter, priority: priorityFilter });
+  } catch (error) {
+    console.error('No se pudieron cargar las tareas del proyecto:', error);
+    errorMessage ??= 'El proyecto está disponible, pero no se pudieron cargar sus tareas.';
   }
 }
 ---

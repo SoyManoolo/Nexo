@@ -5,8 +5,10 @@ import type { Task } from '@nexo/contracts';
 
 let tasks: Task[] = [];
 let errorMessage: string | null = null;
-const today = new Intl.DateTimeFormat('sv-SE').format(new Date());
-const localDay = (value: string) => new Intl.DateTimeFormat('sv-SE').format(new Date(value));
+const timeZone = process.env.NEXO_TIME_ZONE ?? 'Europe/Madrid';
+const dayFormatter = new Intl.DateTimeFormat('sv-SE', { timeZone });
+const today = dayFormatter.format(new Date());
+const localDay = (value: string) => dayFormatter.format(new Date(value));
 
 try {
   tasks = (await createApiClient().listTasks()).filter((task) =>

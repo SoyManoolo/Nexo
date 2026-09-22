@@ -44,6 +44,8 @@ Abre `http://localhost:4321`. Astro consulta la API desde el servidor mediante
 contraseña, ajusta `DATABASE_URL` a sus credenciales actuales antes de migrar.
 Los formularios locales admiten `localhost` y `127.0.0.1`. Para servir la web bajo otro
 nombre de host, configura `WEB_ALLOWED_HOSTNAME` al compilar Astro.
+La vista «Hoy» usa `NEXO_TIME_ZONE` (por defecto `Europe/Madrid`) para decidir cuándo
+empieza y termina el día, con independencia de la zona horaria del servidor.
 
 ```sh
 pnpm check
