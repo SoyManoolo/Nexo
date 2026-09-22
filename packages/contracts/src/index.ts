@@ -26,6 +26,56 @@ export type TaskPriority = z.infer<typeof TaskPrioritySchema>;
 const EntityIdSchema = z.string().uuid();
 const TimestampSchema = z.string().datetime();
 
+const ProjectNameInputSchema = z.string().trim().min(1).max(120);
+const ProjectDescriptionInputSchema = z
+  .string()
+  .trim()
+  .transform((description) => (description === '' ? null : description));
+const ProjectColorInputSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+
+/** Datos aceptados al crear un proyecto. */
+export const CreateProjectInputSchema = z
+  .object({
+    name: ProjectNameInputSchema,
+    description: ProjectDescriptionInputSchema.nullable().optional(),
+    color: ProjectColorInputSchema.nullable().optional(),
+  })
+  .strict();
+
+export type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
+
+/** Datos aceptados al actualizar un proyecto. */
+export const UpdateProjectInputSchema = z
+  .object({
+    name: ProjectNameInputSchema.optional(),
+    description: ProjectDescriptionInputSchema.nullable().optional(),
+    color: ProjectColorInputSchema.nullable().optional(),
+  })
+  .strict()
+  .refine((input) => Object.keys(input).length > 0, {
+    message: 'At least one field is required',
+  });
+
+export type UpdateProjectInput = z.infer<typeof UpdateProjectInputSchema>;
+
+/** Parámetros de ruta para identificar un proyecto. */
+export const ProjectIdParamsSchema = z
+  .object({
+    id: EntityIdSchema,
+  })
+  .strict();
+
+export type ProjectIdParams = z.infer<typeof ProjectIdParamsSchema>;
+
+/** Filtros disponibles al listar proyectos. */
+export const ListProjectsQuerySchema = z
+  .object({
+    status: ProjectStatusSchema.optional(),
+  })
+  .strict();
+
+export type ListProjectsQuery = z.infer<typeof ListProjectsQuerySchema>;
+
 /** Proyecto del espacio personal del usuario. */
 export const ProjectSchema = z.object({
   id: EntityIdSchema,
