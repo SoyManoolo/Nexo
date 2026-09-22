@@ -107,7 +107,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
 ---
 
 <AppLayout title={project ? `${project.name} · Nexo` : 'Proyecto · Nexo'} section="projects">
-  <main class="page">
+  <main class="page project-page">
     <a class="back-link" href="/projects">← Todos los proyectos</a>
     {notFound ? (
       <div class="notice"><h1>Proyecto no encontrado</h1><p>Puede que haya sido eliminado o que el enlace no sea correcto.</p></div>
@@ -119,10 +119,13 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
             <h1>{project.name}</h1>
             {project.description && <p class="page-intro">{project.description}</p>}
           </div>
+          <div class="project-actions">
+            <button class="button secondary" type="button" id="open-project-modal">Detalles del proyecto</button>
+            {project.status === 'active' && <button class="button" type="button" id="open-task-modal">Añadir tarea</button>}
+          </div>
         </header>
         {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
-        <div class="detail-layout">
-          <section aria-labelledby="tasks-heading">
+        <section aria-labelledby="tasks-heading">
             <div class="tasks-header">
               <h2 id="tasks-heading">Tareas <span class="muted">({tasks.length})</span></h2>
               <nav class="view-switcher" aria-label="Vista de tareas">
@@ -180,9 +183,8 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
                 })}
               </div>
             )}
-            {project.status === 'active' && (
+          {project.status === 'active' && (
               <>
-                <button class="button add-task-button" type="button" id="open-task-modal">Añadir tarea</button>
                 <dialog class="task-modal" id="task-modal" aria-labelledby="task-modal-title" open={Boolean(taskForm)}>
                   <form method="post" class="quick-add" id="project-task-form">
                     <input type="hidden" name="intent" value="create-task" />
@@ -206,25 +208,29 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
                 </dialog>
               </>
             )}
-          </section>
-          <aside class="card">
-            <h2>Detalles del proyecto</h2>
-            <form method="post" class="form-grid">
+        </section>
+        <dialog class="task-modal" id="project-modal" aria-labelledby="project-modal-title" open={Boolean(updateForm)}>
+          <form method="post" class="quick-add">
+            <div class="modal-header">
+              <h2 id="project-modal-title">Detalles del proyecto</h2>
+              <button class="modal-close" type="button" id="close-project-modal" aria-label="Cerrar">×</button>
+            </div>
+            <div class="form-grid">
               <input type="hidden" name="intent" value="update" />
               <label class="field">Nombre <input name="name" required maxlength="120" value={formValue(updateForm, 'name', project.name)} /></label>
               <label class="field">Descripción <textarea name="description" maxlength="2000">{formValue(updateForm, 'description', project.description ?? '')}</textarea></label>
               <label class="field">Color <input name="color" type="color" value={formValue(updateForm, 'color', project.color ?? '#4d8564')} /></label>
               <button class="button secondary" type="submit">Guardar cambios</button>
-            </form>
-            {project.status === 'active' && (
-              <details class="archive-panel">
-                <summary>Archivar proyecto</summary>
-                <p>Seguirás pudiendo consultarlo en la lista de archivados.</p>
-                <form method="post"><button class="button danger" name="intent" value="archive" type="submit">Confirmar archivado</button></form>
-              </details>
-            )}
-          </aside>
-        </div>
+            </div>
+          </form>
+          {project.status === 'active' && (
+            <details class="archive-panel">
+              <summary>Archivar proyecto</summary>
+              <p>Seguirás pudiendo consultarlo en la lista de archivados.</p>
+              <form method="post"><button class="button danger" name="intent" value="archive" type="submit">Confirmar archivado</button></form>
+            </details>
+          )}
+        </dialog>
       </>
     ) : (
       <div class="notice error" role="alert"><h1>Proyecto no disponible</h1><p>{errorMessage}</p><a href="/projects">Volver a intentar</a></div>
@@ -239,13 +245,18 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   });
 
   const taskModal = document.querySelector<HTMLDialogElement>('#task-modal');
+  const projectModal = document.querySelector<HTMLDialogElement>('#project-modal');
   const openTaskModal = document.querySelector<HTMLButtonElement>('#open-task-modal');
+  const openProjectModal = document.querySelector<HTMLButtonElement>('#open-project-modal');
   const closeTaskModal = document.querySelector<HTMLButtonElement>('#close-task-modal');
+  const closeProjectModal = document.querySelector<HTMLButtonElement>('#close-project-modal');
   const cancelTaskModal = document.querySelector<HTMLButtonElement>('#cancel-task-modal');
   const taskForm = document.querySelector<HTMLFormElement>('#project-task-form');
 
   openTaskModal?.addEventListener('click', () => taskModal?.showModal());
+  openProjectModal?.addEventListener('click', () => projectModal?.showModal());
   closeTaskModal?.addEventListener('click', () => taskModal?.close());
+  closeProjectModal?.addEventListener('click', () => projectModal?.close());
   cancelTaskModal?.addEventListener('click', () => taskModal?.close());
   taskForm?.addEventListener('submit', () => {
     const dueAt = taskForm.elements.namedItem('dueAt') as HTMLInputElement | null;
@@ -256,9 +267,10 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
 
 <style>
   .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
-  .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; align-items: start; gap: 1.3rem; }
+  .project-page { width: min(100% - 3rem, 120rem); }
   h2 { margin: 0 0 1rem; font-size: 1.2rem; }
   .tasks-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.65rem; }
   .view-switcher { display: inline-flex; overflow: hidden; border: 1px solid #b9c8bb; border-radius: 0.5rem; }
   .view-switcher a { padding: 0.38rem 0.65rem; color: #316d4b; font-size: 0.88rem; font-weight: 700; text-decoration: none; }
   .view-switcher a + a { border-left: 1px solid #b9c8bb; }
@@ -269,13 +281,12 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .task-link { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task-link:hover { border-color: #7faa8c; }
   .task-link small { flex: none; color: #58665c; }
-  .task-board { display: grid; grid-auto-columns: minmax(14rem, 1fr); grid-auto-flow: column; gap: 0.8rem; overflow-x: auto; padding-bottom: 0.4rem; }
+  .task-board { display: grid; grid-template-columns: repeat(5, minmax(11rem, 1fr)); align-items: stretch; gap: 0.8rem; min-height: max(24rem, calc(100vh - 22rem)); overflow-x: auto; padding-bottom: 0.4rem; }
   .task-column { min-width: 0; border: 1px solid #dce2da; border-radius: 0.7rem; padding: 0.8rem; background: #f7faf7; }
   .task-column h3 { margin: 0 0 0.75rem; color: #365440; font-size: 0.95rem; }
   .task-column .task-list { gap: 0.5rem; }
   .board-task-link { display: grid; gap: 0.35rem; }
   .empty-column { margin: 0; color: #758177; font-size: 0.9rem; }
-  .add-task-button { margin-top: 1rem; }
   .task-modal { width: min(36rem, calc(100% - 2rem)); border: 0; border-radius: 0.9rem; padding: 0; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
   .task-modal::backdrop { background: rgb(20 35 25 / 0.45); }
   .quick-add { display: grid; gap: 0.8rem; padding: 1.25rem; }
@@ -288,6 +299,6 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .archive-panel { margin-top: 1.5rem; border-top: 1px solid #dce2da; padding-top: 1rem; }
   .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
   .archive-panel p { color: #58665c; line-height: 1.5; }
-  @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
-  @media (max-width: 600px) { .tasks-header, .task-link, .filters { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } .quick-fields { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .project-page { width: min(100% - 2rem, 120rem); } }
+  @media (max-width: 600px) { .project-actions, .tasks-header, .task-link, .filters { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } .quick-fields { grid-template-columns: 1fr; } }
 </style>
