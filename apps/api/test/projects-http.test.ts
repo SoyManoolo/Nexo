@@ -109,6 +109,13 @@ class InMemoryProjectRepository {
     this.projects[index] = archived;
     return archived;
   }
+
+  async delete(id: string): Promise<boolean> {
+    const index = this.projects.findIndex((item) => item.id === id);
+    if (index === -1) return false;
+    this.projects.splice(index, 1);
+    return true;
+  }
 }
 
 function request(path: string, init?: RequestInit): Promise<Response> {
@@ -281,4 +288,18 @@ test('POST /projects/:id/archive rejects an invalid UUID', async () => {
   const response = await request('/projects/not-a-uuid/archive', { method: 'POST' });
 
   assert.equal(response.status, 400);
+});
+
+test('DELETE /projects/:id removes an existing project', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440001', {
+    method: 'DELETE',
+  });
+  assert.equal(response.status, 204);
+});
+
+test('DELETE /projects/:id returns 404 for a missing project', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440099', {
+    method: 'DELETE',
+  });
+  assert.equal(response.status, 404);
 });

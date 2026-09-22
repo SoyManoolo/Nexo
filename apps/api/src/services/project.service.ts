@@ -121,6 +121,10 @@ export class ProjectService {
     return this.requireProject(this.projectRepository.archive(id), id);
   }
 
+  async delete(id: string): Promise<void> {
+    if (!await this.projectRepository.delete(id)) throw new ProjectNotFoundError(id);
+  }
+
   private async requireProject(
     projectPromise: Promise<Project | null>,
     id: string,

@@ -65,6 +65,7 @@ export class NexoApiClient {
   async getProject(id: string): Promise<Project> { return this.request(`/projects/${encodeURIComponent(id)}`, { method: 'GET' }, ProjectSchema); }
   async updateProject(id: string, input: UpdateProjectInput): Promise<Project> { return this.request(`/projects/${encodeURIComponent(id)}`, { method: 'PATCH', body: UpdateProjectInputSchema.parse(input) }, ProjectSchema); }
   async archiveProject(id: string): Promise<Project> { return this.request(`/projects/${encodeURIComponent(id)}/archive`, { method: 'POST' }, ProjectSchema); }
+  async deleteProject(id: string): Promise<void> { return this.requestEmpty(`/projects/${encodeURIComponent(id)}`, 'DELETE'); }
   async createTask(input: CreateTaskInput): Promise<Task> { return this.request('/tasks', { method: 'POST', body: CreateTaskInputSchema.parse(input) }, TaskSchema); }
   async listTasks(filters: ListTasksQuery = {}): Promise<Task[]> { return this.request('/tasks', { method: 'GET', query: ListTasksQuerySchema.parse(filters) }, z.array(TaskSchema)); }
   async getTask(id: string): Promise<Task> { return this.request(`/tasks/${encodeURIComponent(id)}`, { method: 'GET' }, TaskSchema); }
@@ -74,6 +75,11 @@ export class NexoApiClient {
   async moveTaskToInbox(id: string): Promise<Task> { return this.taskAction(id, 'move-to-inbox'); }
 
   private async taskAction(id: string, action: string): Promise<Task> { return this.request(`/tasks/${encodeURIComponent(id)}/${action}`, { method: 'POST' }, TaskSchema); }
+
+  private async requestEmpty(path: string, method: string): Promise<void> {
+    const response = await this.fetchImplementation(new URL(path, this.baseUrl), { method, headers: this.headers });
+    if (!response.ok) throw await this.toHttpError(response);
+  }
 
   private async request<T>(path: string, options: { method: string; body?: unknown; query?: Record<string, string | undefined> }, schema: ZodType<T>): Promise<T> {
     const url = new URL(path, this.baseUrl);

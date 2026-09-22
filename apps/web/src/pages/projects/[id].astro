@@ -57,6 +57,24 @@ if (Astro.request.method === 'POST') {
     } else if (intent === 'archive') {
       await api.archiveProject(id);
       return Astro.redirect('/projects?status=archived', 303);
+    } else if (intent === 'delete') {
+      await api.deleteProject(id);
+      return Astro.redirect('/projects', 303);
+    } else if (intent === 'move-task') {
+      const taskId = String(form.get('taskId') ?? '');
+      const targetStatus = String(form.get('targetStatus') ?? '');
+      const blockedReason = String(form.get('blockedReason') ?? '').trim();
+      if (!['inbox', 'next', 'in_progress', 'blocked', 'done'].includes(targetStatus)) {
+        throw new Error('Estado de destino no válido');
+      }
+      const task = await api.getTask(taskId);
+      if (task.projectId !== id) throw new Error('La tarea no pertenece a este proyecto');
+      await api.updateTask(taskId, {
+        status: targetStatus as Task['status'],
+        completedAt: targetStatus === 'done' ? task.completedAt ?? new Date().toISOString() : null,
+        blockedReason: targetStatus === 'blocked' ? blockedReason : null,
+      });
+      return Astro.redirect(`/projects/${id}`, 303);
     } else if (intent === 'create-task') {
       const dueAt = String(form.get('dueAt') ?? '');
       const dueAtIso = String(form.get('dueAtIso') ?? '');
@@ -167,14 +185,14 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
                 {taskStatuses.map(({ value, label }) => {
                   const columnTasks = tasks.filter((task) => task.status === value);
                   return (
-                    <section class="task-column" aria-labelledby={`status-${value}`}>
+                    <section class="task-column" aria-labelledby={`status-${value}`} data-task-column data-status={value}>
                       <h3 id={`status-${value}`}>{label} <span class="muted">({columnTasks.length})</span></h3>
                       {columnTasks.length === 0 ? (
                         <p class="empty-column">Sin tareas</p>
                       ) : (
                         <ul class="task-list">
                           {columnTasks.map((task) => (
-                            <li><a class="card task-link board-task-link" href={`/tasks/${task.id}`}><span>{task.title}</span><small>{task.priority}</small></a></li>
+                            <li><a class="card task-link board-task-link" href={`/tasks/${task.id}`} draggable="true" data-task-card data-task-id={task.id}><span>{task.title}</span><small>{task.priority}</small></a></li>
                           ))}
                         </ul>
                       )}
@@ -209,7 +227,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               </>
             )}
         </section>
-        <dialog class="task-modal" id="project-modal" aria-labelledby="project-modal-title" open={Boolean(updateForm)}>
+        <dialog class="task-modal project-modal" id="project-modal" aria-labelledby="project-modal-title" open={Boolean(updateForm)}>
           <form method="post" class="quick-add">
             <div class="modal-header">
               <h2 id="project-modal-title">Detalles del proyecto</h2>
@@ -230,6 +248,10 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               <form method="post"><button class="button danger" name="intent" value="archive" type="submit">Confirmar archivado</button></form>
             </details>
           )}
+          <form method="post" class="delete-panel" onsubmit="return confirm('¿Eliminar este proyecto? Las tareas se moverán al inbox y no se podrá deshacer.')">
+            <input type="hidden" name="intent" value="delete" />
+            <button class="button danger" type="submit">Eliminar proyecto</button>
+          </form>
         </dialog>
       </>
     ) : (
@@ -263,11 +285,47 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
     const dueAtIso = taskForm.elements.namedItem('dueAtIso') as HTMLInputElement | null;
     if (dueAtIso && dueAt) dueAtIso.value = dueAt.value ? new Date(dueAt.value).toISOString() : '';
   });
+
+  let draggedTask: HTMLElement | null = null;
+  document.querySelectorAll<HTMLElement>('[data-task-card]').forEach((card) => {
+    card.addEventListener('dragstart', (event) => {
+      draggedTask = card;
+      event.dataTransfer?.setData('text/plain', card.dataset.taskId ?? '');
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => { draggedTask = null; });
+  });
+  document.querySelectorAll<HTMLElement>('[data-task-column]').forEach((column) => {
+    column.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      column.classList.add('is-drop-target');
+    });
+    column.addEventListener('dragleave', () => column.classList.remove('is-drop-target'));
+    column.addEventListener('drop', async (event) => {
+      event.preventDefault();
+      column.classList.remove('is-drop-target');
+      const taskId = event.dataTransfer?.getData('text/plain') ?? draggedTask?.dataset.taskId;
+      const targetStatus = column.dataset.status;
+      if (!taskId || !targetStatus) return;
+      let blockedReason = '';
+      if (targetStatus === 'blocked') {
+        blockedReason = window.prompt('Indica el motivo del bloqueo:')?.trim() ?? '';
+        if (!blockedReason) return;
+      }
+      const form = new FormData();
+      form.set('intent', 'move-task');
+      form.set('taskId', taskId);
+      form.set('targetStatus', targetStatus);
+      form.set('blockedReason', blockedReason);
+      const response = await fetch(window.location.pathname, { method: 'POST', body: form });
+      if (response.redirected) window.location.assign(response.url);
+    });
+  });
 </script>
 
 <style>
   .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
-  .project-page { width: min(100% - 3rem, 120rem); }
+  .project-page { width: min(100% - 6rem, 112rem); }
   h2 { margin: 0 0 1rem; font-size: 1.2rem; }
   .tasks-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
   .project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.65rem; }
@@ -277,18 +335,21 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .view-switcher a[aria-current='page'] { background: #316d4b; color: #fff; }
   .task-list { display: grid; gap: 0.65rem; padding: 0; margin: 0; list-style: none; }
   .filters { display: flex; align-items: end; gap: 0.6rem; margin-bottom: 1rem; }
-  .filters .field { flex: 1; }
+  .filters .field { flex: 0 1 12rem; }
   .task-link { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task-link:hover { border-color: #7faa8c; }
   .task-link small { flex: none; color: #58665c; }
   .task-board { display: grid; grid-template-columns: repeat(5, minmax(11rem, 1fr)); align-items: stretch; gap: 0.8rem; min-height: max(24rem, calc(100vh - 22rem)); overflow-x: auto; padding-bottom: 0.4rem; }
-  .task-column { min-width: 0; border: 1px solid #dce2da; border-radius: 0.7rem; padding: 0.8rem; background: #f7faf7; }
+  .task-column { min-width: 0; border: 1px solid #dce2da; border-radius: 0.7rem; padding: 0.8rem; background: #f7faf7; transition: border-color 150ms ease, background 150ms ease; }
+  .task-column.is-drop-target { border-color: #3d7655; background: #edf5ee; }
   .task-column h3 { margin: 0 0 0.75rem; color: #365440; font-size: 0.95rem; }
   .task-column .task-list { gap: 0.5rem; }
   .board-task-link { display: grid; gap: 0.35rem; }
   .empty-column { margin: 0; color: #758177; font-size: 0.9rem; }
   .task-modal { width: min(36rem, calc(100% - 2rem)); border: 0; border-radius: 0.9rem; padding: 0; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
   .task-modal::backdrop { background: rgb(20 35 25 / 0.45); }
+  .project-modal { width: min(38rem, calc(100% - 2rem)); }
+  .project-modal .field textarea { min-height: 4.5rem; }
   .quick-add { display: grid; gap: 0.8rem; padding: 1.25rem; }
   .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
   .modal-header h2 { margin: 0; }
@@ -296,9 +357,10 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .modal-close:hover { background: #edf5ee; color: #27583b; }
   .quick-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
-  .archive-panel { margin-top: 1.5rem; border-top: 1px solid #dce2da; padding-top: 1rem; }
+  .archive-panel { margin: 0; border-top: 1px solid #dce2da; padding: 1rem 1.25rem; }
   .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
   .archive-panel p { color: #58665c; line-height: 1.5; }
-  @media (max-width: 900px) { .project-page { width: min(100% - 2rem, 120rem); } }
+  .delete-panel { border-top: 1px solid #dce2da; padding: 1rem 1.25rem 1.25rem; }
+  @media (max-width: 900px) { .project-page { width: min(100% - 3rem, 112rem); } }
   @media (max-width: 600px) { .project-actions, .tasks-header, .task-link, .filters { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } .quick-fields { grid-template-columns: 1fr; } }
 </style>

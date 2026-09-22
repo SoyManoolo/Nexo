@@ -94,4 +94,9 @@ export class ProjectRepository {
 
     return project ? toProject(project) : null;
   }
+
+  async delete(id: string): Promise<boolean> {
+    const deleted = await db.delete(projects).where(eq(projects.id, id)).returning({ id: projects.id });
+    return deleted.length > 0;
+  }
 }
