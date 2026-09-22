@@ -113,6 +113,11 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.match(await (await fetch(`${base}/projects`)).text(), /Proyecto de prueba/);
   assert.deepEqual(calls.find((call) => call.method === 'POST' && call.path === '/projects').body,
     { name: 'Proyecto de prueba', description: 'Descripción', color: '#4d8564' });
+  const projectPage = await (await fetch(`${base}/projects/${projects[0].id}`)).text();
+  assert.match(projectPage, /Vista de tareas/);
+  assert.match(projectPage, /Columnas[\s\S]*Filas/);
+  assert.match(projectPage, /class="task-board/);
+  assert.match(await (await fetch(`${base}/projects/${projects[0].id}?view=list`)).text(), /name="view" value="list"/);
 
   assert.equal((await submit('/inbox', {
     title: 'Tarea capturada', scheduledFor: '2026-09-22',
