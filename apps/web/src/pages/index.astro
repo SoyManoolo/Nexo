@@ -1,3 +1,145 @@
 ---
-return Astro.redirect('/projects');
+import AppLayout from '../layouts/AppLayout.astro';
+import { createApiClient } from '../lib/api';
+import type { Task } from '@nexo/contracts';
+
+const timeZone = process.env.NEXO_TIME_ZONE ?? 'Europe/Madrid';
+const localDay = new Intl.DateTimeFormat('sv-SE', { timeZone });
+const today = localDay.format(new Date());
+const dateParam = Astro.url.searchParams.get('date');
+const selectedDay = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) &&
+  !Number.isNaN(Date.parse(`${dateParam}T12:00:00Z`)) &&
+  new Date(`${dateParam}T12:00:00Z`).toISOString().slice(0, 10) === dateParam
+  ? dateParam : today;
+const view = Astro.url.searchParams.get('view') === 'week' ? 'week' : 'month';
+const anchor = new Date(`${selectedDay}T12:00:00Z`);
+const dateKey = (date: Date) => date.toISOString().slice(0, 10);
+const addDays = (date: Date, amount: number) => {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + amount);
+  return next;
+};
+const mondayOffset = (date: Date) => (date.getUTCDay() + 6) % 7;
+const firstOfMonth = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1, 12));
+const periodStart = view === 'week'
+  ? addDays(anchor, -mondayOffset(anchor))
+  : addDays(firstOfMonth, -mondayOffset(firstOfMonth));
+const days = Array.from({ length: view === 'week' ? 7 : 42 }, (_, index) => dateKey(addDays(periodStart, index)));
+const previous = view === 'week'
+  ? dateKey(addDays(anchor, -7))
+  : dateKey(new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - 1, 1, 12)));
+const next = view === 'week'
+  ? dateKey(addDays(anchor, 7))
+  : dateKey(new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 1, 12)));
+const link = (mode: 'week' | 'month', date: string) => `/?view=${mode}&date=${date}`;
+const monthLabel = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(anchor);
+const shortDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const periodLabel = view === 'month' ? monthLabel : `${shortDate.format(periodStart)} – ${shortDate.format(addDays(periodStart, 6))}`;
+const dayLabel = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+
+let tasks: Task[] = [];
+let errorMessage: string | null = null;
+try {
+  tasks = await createApiClient().listTasks();
+} catch (error) {
+  console.error('No se pudieron cargar las tareas del inicio:', error);
+  errorMessage = 'No se pudieron cargar las tareas. Comprueba la conexión con la API.';
+}
+
+const pinned = tasks.filter((task) => task.pinned);
+const newest = [...tasks].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)).slice(0, 3);
+const eventsFor = (day: string) => tasks.flatMap((task) => {
+  const planned = task.scheduledFor === day;
+  const deadline = task.dueAt !== null && localDay.format(new Date(task.dueAt)) === day;
+  return planned || deadline ? [{ task, kind: planned && deadline ? 'both' : planned ? 'planned' : 'deadline' }] : [];
+});
 ---
+
+<AppLayout title="Inicio · Nexo" section="home">
+  <main class="page home-page">
+    <header class="page-header"><div><p class="eyebrow">Tu espacio</p><h1>Inicio</h1><p class="page-intro">Tus planes y fechas importantes, de un vistazo.</p></div></header>
+    {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/">Volver a intentar</a></div>}
+
+    <section class="calendar card" aria-label="Calendario de tareas">
+      <div class="calendar-toolbar">
+        <div><h2>Calendario</h2><p class="period">{periodLabel}</p></div>
+        <div class="calendar-controls">
+          <div class="view-switch" aria-label="Vista del calendario">
+            <a href={link('month', selectedDay)} aria-current={view === 'month' ? 'page' : undefined}>Mes</a>
+            <a href={link('week', selectedDay)} aria-current={view === 'week' ? 'page' : undefined}>Semana</a>
+          </div>
+          <a class="period-nav" href={link(view, previous)} aria-label={view === 'month' ? 'Mes anterior' : 'Semana anterior'}>←</a>
+          <a class="period-nav" href={link(view, today)}>Hoy</a>
+          <a class="period-nav" href={link(view, next)} aria-label={view === 'month' ? 'Mes siguiente' : 'Semana siguiente'}>→</a>
+        </div>
+      </div>
+      <div class="calendar-scroll">
+        <div class="calendar-grid" data-view={view}>
+          {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((name) => <div class="weekday">{name}</div>)}
+          {days.map((day) => (
+            <div class:list={['calendar-day', { 'outside-month': view === 'month' && day.slice(0, 7) !== selectedDay.slice(0, 7), today: day === today }]}>
+              <time datetime={day} aria-label={dayLabel.format(new Date(`${day}T12:00:00Z`))}>{Number(day.slice(8))}</time>
+              <div class="day-events">
+                {eventsFor(day).map(({ task, kind }) => (
+                  <a class:list={['calendar-event', kind, { done: task.status === 'done' }]} href={`/tasks/${task.id}`} aria-label={`${task.title}, ${kind === 'both' ? 'programada y fecha límite' : kind === 'planned' ? 'programada' : 'fecha límite'}`} title={kind === 'both' ? 'Programada y fecha límite' : kind === 'planned' ? 'Programada' : 'Fecha límite'}>{task.title}</a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div class="legend"><span><i class="planned-dot"></i> Programada</span><span><i class="deadline-dot"></i> Fecha límite</span></div>
+    </section>
+
+    <div class="home-lists">
+      <section class="card" aria-labelledby="pinned-heading">
+        <h2 id="pinned-heading">Tareas ancladas</h2>
+        {pinned.length ? <ul>{pinned.map((task) => <li><a href={`/tasks/${task.id}`}>{task.title}</a></li>)}</ul> : <p class="empty">Aún no hay tareas ancladas. Abre una tarea y elige «Anclar en inicio».</p>}
+      </section>
+      <section class="card" aria-labelledby="newest-heading">
+        <h2 id="newest-heading">Las 3 tareas más nuevas</h2>
+        {newest.length ? <ul>{newest.map((task) => <li><a href={`/tasks/${task.id}`}>{task.title}</a></li>)}</ul> : <p class="empty">Las tareas que crees aparecerán aquí.</p>}
+      </section>
+    </div>
+  </main>
+</AppLayout>
+
+<style>
+  .home-page { width: min(100% - 2rem, 84rem); }
+  .calendar { padding: 1.2rem; }
+  .calendar-toolbar, .calendar-controls, .view-switch, .legend { display: flex; align-items: center; gap: 0.5rem; }
+  .calendar-toolbar { justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.1rem; }
+  .calendar-toolbar h2 { margin: 0 0 0.2rem; }
+  .period { margin: 0; color: #58665c; text-transform: capitalize; }
+  .calendar-controls { flex-wrap: wrap; }
+  .view-switch { padding: 0.2rem; background: #edf3ec; border-radius: 0.6rem; }
+  .view-switch a, .period-nav { padding: 0.45rem 0.7rem; border-radius: 0.45rem; text-decoration: none; font-weight: 650; }
+  .view-switch a[aria-current="page"] { background: #fff; box-shadow: 0 1px 4px #17211c20; }
+  .period-nav { border: 1px solid #dce2da; }
+  .period-nav:hover, .view-switch a:hover { background: #e0ede0; }
+  .calendar-scroll { overflow-x: auto; }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(6.5rem, 1fr)); min-width: 45.5rem; border-top: 1px solid #dce2da; border-left: 1px solid #dce2da; }
+  .weekday { padding: 0.5rem; text-align: center; color: #58665c; font-size: 0.78rem; font-weight: 750; background: #f4f7f2; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
+  .calendar-day { min-height: 7.5rem; padding: 0.4rem; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
+  .calendar-grid[data-view="week"] .calendar-day { min-height: 18rem; }
+  .calendar-day.outside-month { background: #f8f9f6; }
+  .calendar-day time { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; color: #4d5d52; font-size: 0.8rem; }
+  .calendar-day.today time { background: #316d4b; color: #fff; border-radius: 50%; }
+  .day-events { display: grid; gap: 0.2rem; margin-top: 0.25rem; }
+  .calendar-event { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 0.25rem; padding: 0.25rem 0.3rem 0.25rem 0.45rem; font-size: 0.75rem; text-decoration: none; background: #e7f2e8; border-left: 3px solid #397d53; }
+  .calendar-event.deadline { background: #fff1e7; border-left-color: #bd673d; }
+  .calendar-event.both { background: #f2eafa; border-left-color: #794da4; }
+  .calendar-event.done { opacity: 0.6; text-decoration: line-through; }
+  .calendar-event:hover { filter: brightness(0.94); }
+  .legend { gap: 1rem; margin-top: 0.8rem; color: #58665c; font-size: 0.8rem; }
+  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .legend i { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: #397d53; }
+  .legend .deadline-dot { background: #bd673d; }
+  .home-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .home-lists ul { list-style: none; margin: 0; padding: 0; }
+  .home-lists li + li { border-top: 1px solid #e6ebe5; }
+  .home-lists li a { display: block; padding: 0.7rem 0; text-decoration: none; }
+  .home-lists li a:hover { color: #316d4b; }
+  .empty { margin: 0; color: #58665c; line-height: 1.5; }
+  @media (max-width: 720px) { .home-lists { grid-template-columns: 1fr; } .calendar { padding: 0.8rem; } }
+</style>

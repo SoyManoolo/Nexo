@@ -13,8 +13,8 @@ const makeProject = (body) => ({
   status: 'active', archivedAt: null, createdAt: now, updatedAt: now,
 });
 const makeTask = (body) => ({
-  id: randomUUID(), title: body.title, notes: null, projectId: null, status: 'inbox',
-  priority: 'medium', pinned: false, scheduledFor: null, dueAt: null, startedAt: null,
+  id: randomUUID(), title: body.title, notes: body.notes ?? null, projectId: body.projectId ?? null, status: 'inbox',
+  priority: body.priority ?? 'medium', pinned: false, scheduledFor: body.scheduledFor ?? null, dueAt: body.dueAt ?? null, startedAt: null,
   completedAt: null, blockedReason: null, createdAt: now, updatedAt: now,
 });
 async function listen(server) {
@@ -114,13 +114,24 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.deepEqual(calls.find((call) => call.method === 'POST' && call.path === '/projects').body,
     { name: 'Proyecto de prueba', description: 'Descripción', color: '#4d8564' });
 
-  assert.equal((await submit('/inbox', { title: 'Tarea capturada' })).status, 303);
+  assert.equal((await submit('/inbox', {
+    title: 'Tarea capturada', scheduledFor: '2026-09-22',
+    dueAt: '2026-09-24T12:00', dueAtIso: '2026-09-24T10:00:00.000Z',
+  })).status, 303);
   assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
   assert.equal(calls.find((call) => call.method === 'POST' && call.path === '/tasks').body.title,
     'Tarea capturada');
+  assert.equal(tasks[0].dueAt, '2026-09-24T10:00:00.000Z');
+  const home = await (await fetch(`${base}/?date=2026-09-22`)).text();
+  assert.match(home, /Calendario/);
+  assert.match(home, /Tarea capturada, programada/);
+  assert.match(home, /Tarea capturada, fecha límite/);
+  assert.match(home, /Las 3 tareas más nuevas/);
+  assert.match(await (await fetch(`${base}/?view=week&date=2026-09-22`)).text(), /Semana siguiente/);
 
   assert.equal((await submit(`/tasks/${tasks[0].id}`, { intent: 'pin' })).status, 303);
   assert.equal(tasks[0].pinned, true);
+  assert.match(await (await fetch(`${base}/`)).text(), /Tareas ancladas[\s\S]*Tarea capturada/);
   assert.equal((await submit(`/tasks/${tasks[0].id}`, { intent: 'unpin' })).status, 303);
   assert.equal(tasks[0].pinned, false);
 
