@@ -26,8 +26,18 @@ function project(id: string, name: string, status: ProjectStatus, updatedAt: str
 
 class InMemoryProjectRepository {
   private readonly projects: Project[] = [
-    project('550e8400-e29b-41d4-a716-446655440000', 'Archived project', 'archived', '2026-01-02T00:00:00.000Z'),
-    project('550e8400-e29b-41d4-a716-446655440001', 'Active project', 'active', '2026-01-03T00:00:00.000Z'),
+    project(
+      '550e8400-e29b-41d4-a716-446655440000',
+      'Archived project',
+      'archived',
+      '2026-01-02T00:00:00.000Z',
+    ),
+    project(
+      '550e8400-e29b-41d4-a716-446655440001',
+      'Active project',
+      'active',
+      '2026-01-03T00:00:00.000Z',
+    ),
   ];
 
   async create(input: CreateProjectInput): Promise<Project> {
@@ -37,8 +47,13 @@ class InMemoryProjectRepository {
       'active',
       '2026-01-04T00:00:00.000Z',
     );
-    this.projects.push({ ...created, description: input.description ?? null, color: input.color ?? null });
-    return created;
+    const projectWithInput = {
+      ...created,
+      description: input.description ?? null,
+      color: input.color ?? null,
+    };
+    this.projects.push(projectWithInput);
+    return projectWithInput;
   }
 
   async list(options: ListProjectsOptions = {}): Promise<Project[]> {
@@ -55,7 +70,10 @@ class InMemoryProjectRepository {
     return this.projects.find((item) => item.id === id) ?? null;
   }
 
-  async update(id: string, input: Partial<Pick<Project, 'name' | 'description' | 'color'>>): Promise<Project | null> {
+  async update(
+    id: string,
+    input: Partial<Pick<Project, 'name' | 'description' | 'color'>>,
+  ): Promise<Project | null> {
     const index = this.projects.findIndex((item) => item.id === id);
 
     if (index === -1) {
@@ -102,11 +120,24 @@ test('POST /projects creates a valid project', async () => {
   const response = await request('/projects', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: '  New project  ' }),
+    body: JSON.stringify({
+      name: '  New project  ',
+      description: '  Personal organizer  ',
+      color: '#2563EB',
+    }),
   });
 
   assert.equal(response.status, 201);
-  assert.equal((await response.json()).name, 'New project');
+  assert.deepEqual(await response.json(), {
+    ...project(
+      '550e8400-e29b-41d4-a716-446655440002',
+      'New project',
+      'active',
+      '2026-01-04T00:00:00.000Z',
+    ),
+    description: 'Personal organizer',
+    color: '#2563EB',
+  });
 });
 
 test('POST /projects rejects an empty name', async () => {
@@ -124,9 +155,15 @@ test('GET /projects lists active and archived projects', async () => {
   const archivedResponse = await request('/projects?status=archived');
 
   assert.equal(activeResponse.status, 200);
-  assert.deepEqual((await activeResponse.json()).map((item: Project) => item.status), ['active']);
+  assert.deepEqual(
+    (await activeResponse.json()).map((item: Project) => item.status),
+    ['active'],
+  );
   assert.equal(archivedResponse.status, 200);
-  assert.deepEqual((await archivedResponse.json()).map((item: Project) => item.status), ['archived']);
+  assert.deepEqual(
+    (await archivedResponse.json()).map((item: Project) => item.status),
+    ['archived'],
+  );
 });
 
 test('GET /projects rejects an invalid status', async () => {
