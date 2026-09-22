@@ -109,6 +109,22 @@ export class TaskService {
 
     this.validateBlockedState(status, blockedReason);
 
+    if (
+      status !== 'blocked' &&
+      input.blockedReason !== undefined &&
+      input.blockedReason !== null
+    ) {
+      throw new TaskValidationError('Only blocked tasks can have a blocked reason');
+    }
+
+    if (
+      status !== 'done' &&
+      input.completedAt !== undefined &&
+      input.completedAt !== null
+    ) {
+      throw new TaskValidationError('Only done tasks can have a completion date');
+    }
+
     const normalizedInput: UpdateTaskInput = {};
 
     if (input.title !== undefined) {

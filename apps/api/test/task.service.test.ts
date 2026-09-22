@@ -177,3 +177,17 @@ test('TaskService completes, reopens, blocks and moves tasks to inbox', async ()
   assert.equal(inbox.projectId, null);
   assert.equal(repository.tasks.get(created.id)?.blockedReason, 'Waiting for approval');
 });
+
+test('TaskService rejects state-only fields that do not match the final state', async () => {
+  const { service } = createService();
+  const created = await service.create({ title: 'State validation task' });
+
+  await assert.rejects(
+    service.update(created.id, { blockedReason: 'Waiting for approval' }),
+    TaskValidationError,
+  );
+  await assert.rejects(
+    service.update(created.id, { completedAt: '2026-01-04T00:00:00.000Z' }),
+    TaskValidationError,
+  );
+});
