@@ -25,14 +25,16 @@ if (Astro.request.method === 'POST') {
       const current = await api.getTask(id);
       const status = String(form.get('status') ?? 'inbox') as TaskStatus;
       const dueAt = String(form.get('dueAt') ?? '');
+      const dueAtIso = String(form.get('dueAtIso') ?? '');
+      const selectedProjectId = String(form.get('projectId') ?? '') || null;
       await api.updateTask(id, {
         title: String(form.get('title') ?? ''),
         notes: String(form.get('notes') ?? '') || null,
-        projectId: String(form.get('projectId') ?? '') || null,
+        ...(selectedProjectId === current.projectId ? {} : { projectId: selectedProjectId }),
         status,
         priority: String(form.get('priority') ?? 'medium') as Task['priority'],
         scheduledFor: String(form.get('scheduledFor') ?? '') || null,
-        dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+        dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
         blockedReason: status === 'blocked' ? String(form.get('blockedReason') ?? '') : null,
         completedAt: status === 'done' ? current.completedAt ?? new Date().toISOString() : null,
       });
@@ -78,7 +80,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
         <div class="task-layout">
           <section class="card">
             <h2>Detalles de la tarea</h2>
-            <form method="post" class="form-grid">
+            <form method="post" class="form-grid" id="task-form">
               <input type="hidden" name="intent" value="save" />
               <label class="field">Título <input name="title" required maxlength="200" value={task.title} /></label>
               <label class="field">Notas <textarea name="notes" maxlength="2000">{task.notes ?? ''}</textarea></label>
@@ -90,7 +92,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               </label>
               <div class="field-pair">
                 <label class="field">Estado
-                  <select name="status">
+                  <select name="status" id="task-status">
                     <option value="inbox" selected={task.status === 'inbox'}>Inbox</option>
                     <option value="next" selected={task.status === 'next'}>Siguiente</option>
                     <option value="in_progress" selected={task.status === 'in_progress'}>En curso</option>
@@ -108,9 +110,10 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               </div>
               <div class="field-pair">
                 <label class="field">Programada para <input name="scheduledFor" type="date" value={task.scheduledFor ?? ''} /></label>
-                <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={task.dueAt?.slice(0, 16) ?? ''} /></label>
+                <label class="field">Fecha límite <input name="dueAt" id="task-due-at" type="datetime-local" value={task.dueAt?.slice(0, 16) ?? ''} data-iso={task.dueAt ?? ''} /></label>
               </div>
-              <label class="field">Motivo de bloqueo <input name="blockedReason" value={task.blockedReason ?? ''} placeholder="Necesario para el estado bloqueada" /></label>
+              <input name="dueAtIso" id="task-due-at-iso" type="hidden" />
+              <label class="field" id="blocked-reason-field">Motivo de bloqueo <input name="blockedReason" value={task.blockedReason ?? ''} placeholder="¿Qué estás esperando?" /></label>
               <button class="button" type="submit">Guardar cambios</button>
             </form>
           </section>
@@ -131,10 +134,39 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
   </main>
 </AppLayout>
 
+<script>
+  const form = document.querySelector<HTMLFormElement>('#task-form');
+  const status = document.querySelector<HTMLSelectElement>('#task-status');
+  const blockedField = document.querySelector<HTMLElement>('#blocked-reason-field');
+  const blockedInput = blockedField?.querySelector<HTMLInputElement>('input');
+  const dueAt = document.querySelector<HTMLInputElement>('#task-due-at');
+  const dueAtIso = document.querySelector<HTMLInputElement>('#task-due-at-iso');
+
+  if (dueAt?.dataset.iso) {
+    const date = new Date(dueAt.dataset.iso);
+    dueAt.value = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+      .toISOString()
+      .slice(0, 16);
+  }
+
+  function syncBlockedReason() {
+    const isBlocked = status?.value === 'blocked';
+    if (blockedField) blockedField.hidden = !isBlocked;
+    if (blockedInput) blockedInput.required = isBlocked;
+  }
+
+  status?.addEventListener('change', syncBlockedReason);
+  syncBlockedReason();
+  form?.addEventListener('submit', () => {
+    if (dueAtIso && dueAt) dueAtIso.value = dueAt.value ? new Date(dueAt.value).toISOString() : '';
+  });
+</script>
+
 <style>
   .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
   .task-layout { display: grid; grid-template-columns: minmax(0, 1fr) 14rem; gap: 1.3rem; align-items: start; }
   .field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .field[hidden] { display: none; }
   .actions { display: grid; gap: 0.8rem; }
   .actions form, .actions button { width: 100%; }
   @media (max-width: 900px) { .task-layout { grid-template-columns: 1fr; } }
