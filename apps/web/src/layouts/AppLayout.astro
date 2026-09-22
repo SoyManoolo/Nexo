@@ -1,5 +1,5 @@
 ---
-interface Props { title: string; section?: 'projects' | 'inbox' | 'today'; }
+interface Props { title: string; section?: 'projects' | 'inbox' | 'today' | 'settings'; }
 const { title, section } = Astro.props;
 ---
 
@@ -19,6 +19,7 @@ const { title, section } = Astro.props;
           <a href="/inbox" aria-current={section === 'inbox' ? 'page' : undefined}>Inbox</a>
           <a href="/today" aria-current={section === 'today' ? 'page' : undefined}>Hoy</a>
           <a href="/projects" aria-current={section === 'projects' ? 'page' : undefined}>Proyectos</a>
+          <a href="/settings" aria-current={section === 'settings' ? 'page' : undefined}>Ajustes</a>
         </nav>
         <p class="sidebar-note">Haz sitio para lo importante.</p>
       </aside>
