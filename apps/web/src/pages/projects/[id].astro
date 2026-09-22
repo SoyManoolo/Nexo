@@ -41,11 +41,14 @@ if (Astro.request.method === 'POST') {
       await api.archiveProject(id);
       return Astro.redirect('/projects?status=archived', 303);
     } else if (intent === 'create-task') {
+      const dueAt = String(form.get('dueAt') ?? '');
+      const dueAtIso = String(form.get('dueAtIso') ?? '');
       await api.createTask({
         title: String(form.get('title') ?? ''),
         notes: String(form.get('notes') ?? '') || null,
         priority: String(form.get('priority') ?? 'medium') as Task['priority'],
         scheduledFor: String(form.get('scheduledFor') ?? '') || null,
+        dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
         projectId: id,
       });
     } else {
@@ -135,13 +138,15 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               </ul>
             )}
             {project.status === 'active' && (
-              <form method="post" class="quick-add card">
+              <form method="post" class="quick-add card" id="project-task-form">
                 <input type="hidden" name="intent" value="create-task" />
                 <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" value={formValue(taskForm, 'title')} /></label>
                 <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(taskForm, 'notes')}</textarea></label>
                 <div class="quick-fields">
                   <label class="field">Prioridad <select name="priority"><option value="medium" selected={formValue(taskForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(taskForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(taskForm, 'priority') === 'high'}>Alta</option></select></label>
                   <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(taskForm, 'scheduledFor')} /></label>
+                  <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={formValue(taskForm, 'dueAt')} /></label>
+                  <input name="dueAtIso" type="hidden" />
                 </div>
                 <button class="button" type="submit">Añadir tarea</button>
               </form>
@@ -171,6 +176,15 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
     )}
   </main>
 </AppLayout>
+
+<script>
+  const taskForm = document.querySelector<HTMLFormElement>('#project-task-form');
+  taskForm?.addEventListener('submit', () => {
+    const dueAt = taskForm.elements.namedItem('dueAt') as HTMLInputElement | null;
+    const dueAtIso = taskForm.elements.namedItem('dueAtIso') as HTMLInputElement | null;
+    if (dueAtIso && dueAt) dueAtIso.value = dueAt.value ? new Date(dueAt.value).toISOString() : '';
+  });
+</script>
 
 <style>
   .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }

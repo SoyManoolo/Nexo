@@ -32,11 +32,14 @@ if (Astro.request.method === 'POST') {
     }
     if (intent !== 'create') throw new RangeError('Acción de tarea desconocida');
     const projectId = String(form.get('projectId') ?? '') || null;
+    const dueAt = String(form.get('dueAt') ?? '');
+    const dueAtIso = String(form.get('dueAtIso') ?? '');
     await createApiClient().createTask({
       title: String(form.get('title') ?? ''),
       notes: String(form.get('notes') ?? '') || null,
       priority: String(form.get('priority') ?? 'medium') as Task['priority'],
       scheduledFor: String(form.get('scheduledFor') ?? '') || null,
+      dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
       projectId,
     });
     return Astro.redirect(projectId ? `/projects/${projectId}` : '/inbox', 303);
@@ -68,7 +71,7 @@ try {
     <header class="page-header"><div><p class="eyebrow">Captura rápida</p><h1>Inbox</h1><p class="page-intro">Anota lo que tienes en mente. Organízalo después.</p></div></header>
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/inbox">Volver a intentar</a></div>}
 
-    <form class="capture card" method="post">
+    <form class="capture card" method="post" id="capture-form">
       <input type="hidden" name="intent" value="create" />
       <label class="field">Nueva tarea <input name="title" maxlength="200" required placeholder="¿Qué tienes pendiente?" autocomplete="off" value={formValue(submittedForm, 'title')} /></label>
       <div class="capture-details">
@@ -80,6 +83,8 @@ try {
           <select name="priority"><option value="medium" selected={formValue(submittedForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(submittedForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(submittedForm, 'priority') === 'high'}>Alta</option></select>
         </label>
         <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(submittedForm, 'scheduledFor')} /></label>
+        <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={formValue(submittedForm, 'dueAt')} /></label>
+        <input name="dueAtIso" type="hidden" />
       </div>
       <button class="button" type="submit">Crear tarea</button>
     </form>
@@ -114,6 +119,15 @@ try {
     </ul>
   </main>
 </AppLayout>
+
+<script>
+  const captureForm = document.querySelector<HTMLFormElement>('#capture-form');
+  captureForm?.addEventListener('submit', () => {
+    const dueAt = captureForm.elements.namedItem('dueAt') as HTMLInputElement | null;
+    const dueAtIso = captureForm.elements.namedItem('dueAtIso') as HTMLInputElement | null;
+    if (dueAtIso && dueAt) dueAtIso.value = dueAt.value ? new Date(dueAt.value).toISOString() : '';
+  });
+</script>
 
 <style>
   .capture { display: grid; gap: 0.9rem; margin-bottom: 2rem; }
