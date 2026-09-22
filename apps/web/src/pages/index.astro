@@ -109,11 +109,11 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
 </AppLayout>
 
 <style>
-  .home-page { width: min(100% - 2rem, 78rem); }
-  .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; align-items: start; gap: 1rem; }
+  .home-page { width: min(100% - 2rem, 70rem); }
+  .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; gap: 1.25rem; }
   .calendar { padding: 1rem; min-width: 0; }
   .calendar-toolbar, .calendar-controls, .view-switch, .legend { display: flex; align-items: center; gap: 0.5rem; }
-  .calendar-toolbar { justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.1rem; }
+  .calendar-toolbar { justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.8rem; }
   .calendar-toolbar h2 { margin: 0 0 0.2rem; }
   .period { margin: 0; color: #58665c; text-transform: capitalize; }
   .calendar-controls { flex-wrap: wrap; }
@@ -124,13 +124,13 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
   .period-nav:hover, .view-switch a:hover { background: #e0ede0; }
   .calendar-scroll { overflow-x: auto; }
   .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(5.5rem, 1fr)); min-width: 38.5rem; border-top: 1px solid #dce2da; border-left: 1px solid #dce2da; }
-  .weekday { padding: 0.5rem; text-align: center; color: #58665c; font-size: 0.78rem; font-weight: 750; background: #f4f7f2; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
-  .calendar-day { min-height: 5.5rem; padding: 0.4rem; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
-  .calendar-grid[data-view="week"] .calendar-day { min-height: 12rem; }
+  .weekday { padding: 0.4rem; text-align: center; color: #58665c; font-size: 0.78rem; font-weight: 750; background: #f4f7f2; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
+  .calendar-day { min-height: 4.4rem; padding: 0.35rem; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
+  .calendar-grid[data-view="week"] .calendar-day { min-height: 9rem; }
   .calendar-day.outside-month { background: #f8f9f6; }
   .calendar-day time { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; color: #4d5d52; font-size: 0.8rem; }
   .calendar-day.today time { background: #316d4b; color: #fff; border-radius: 50%; }
-  .day-events { display: grid; gap: 0.2rem; margin-top: 0.25rem; }
+  .day-events { display: grid; gap: 0.15rem; margin-top: 0.15rem; }
   .calendar-event { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 0.25rem; padding: 0.25rem 0.3rem 0.25rem 0.45rem; font-size: 0.75rem; text-decoration: none; background: #e7f2e8; border-left: 3px solid #397d53; }
   .calendar-event.deadline { background: #fff1e7; border-left-color: #bd673d; }
   .calendar-event.both { background: #f2eafa; border-left-color: #794da4; }
