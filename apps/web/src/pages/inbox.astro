@@ -6,6 +6,10 @@ import type { Task } from '@nexo/contracts';
 let tasks: Task[] = [];
 let errorMessage: string | null = null;
 const showDone = Astro.url.searchParams.get('status') === 'done';
+const priorityParam = Astro.url.searchParams.get('priority');
+const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
+  ? priorityParam as Task['priority']
+  : undefined;
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
@@ -20,7 +24,7 @@ if (Astro.request.method === 'POST') {
 }
 
 try {
-  tasks = (await createApiClient().listTasks()).filter((task) =>
+  tasks = (await createApiClient().listTasks({ priority: priorityFilter })).filter((task) =>
     task.projectId === null && (showDone ? task.status === 'done' : task.status !== 'done'),
   );
 } catch (error) {
@@ -40,10 +44,22 @@ try {
     </form>
 
     <div class="tabs">
-      <a href="/inbox" aria-current={!showDone ? 'page' : undefined}>Pendientes</a>
-      <a href="/inbox?status=done" aria-current={showDone ? 'page' : undefined}>Completadas</a>
+      <a href={`/inbox${priorityFilter ? `?priority=${priorityFilter}` : ''}`} aria-current={!showDone ? 'page' : undefined}>Pendientes</a>
+      <a href={`/inbox?status=done${priorityFilter ? `&priority=${priorityFilter}` : ''}`} aria-current={showDone ? 'page' : undefined}>Completadas</a>
     </div>
-    {!errorMessage && tasks.length === 0 && <div class="notice"><h2>{showDone ? 'Nada completado todavía' : 'Inbox vacío'}</h2><p>{showDone ? 'Las tareas que completes aparecerán aquí.' : 'Cuando captures una tarea, aparecerá aquí.'}</p></div>}
+    <form method="get" class="filters">
+      {showDone && <input type="hidden" name="status" value="done" />}
+      <label class="field">Prioridad
+        <select name="priority">
+          <option value="">Todas</option>
+          <option value="low" selected={priorityFilter === 'low'}>Baja</option>
+          <option value="medium" selected={priorityFilter === 'medium'}>Media</option>
+          <option value="high" selected={priorityFilter === 'high'}>Alta</option>
+        </select>
+      </label>
+      <button class="button secondary" type="submit">Filtrar</button>
+    </form>
+    {!errorMessage && tasks.length === 0 && <div class="notice"><h2>{priorityFilter ? 'No hay tareas con esta prioridad' : showDone ? 'Nada completado todavía' : 'Inbox vacío'}</h2><p>{priorityFilter ? 'Prueba con otra prioridad o muestra todas.' : showDone ? 'Las tareas que completes aparecerán aquí.' : 'Cuando captures una tarea, aparecerá aquí.'}</p></div>}
     <ul class="tasks">
       {tasks.map((task) => (
         <li><a class="task card" href={`/tasks/${task.id}`}><span><strong>{task.title}</strong>{task.notes && <small>{task.notes}</small>}</span><small>{task.status.replace('_', ' ')} · {task.priority}</small></a></li>
@@ -58,6 +74,8 @@ try {
   .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dce2da; }
   .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
   .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
+  .filters { display: flex; align-items: end; gap: 0.6rem; max-width: 22rem; margin-bottom: 1rem; }
+  .filters .field { flex: 1; }
   .tasks { display: grid; gap: 0.7rem; padding: 0; margin: 0; list-style: none; }
   .task { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task:hover { border-color: #7faa8c; }

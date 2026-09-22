@@ -9,6 +9,14 @@ let project: Project | null = null;
 let tasks: Task[] = [];
 let errorMessage: string | null = null;
 let notFound = false;
+const statusParam = Astro.url.searchParams.get('status');
+const priorityParam = Astro.url.searchParams.get('priority');
+const statusFilter = ['inbox', 'next', 'in_progress', 'blocked', 'done'].includes(statusParam ?? '')
+  ? statusParam as Task['status']
+  : undefined;
+const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
+  ? priorityParam as Task['priority']
+  : undefined;
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
@@ -39,7 +47,7 @@ if (Astro.request.method === 'POST') {
 
 try {
   const api = createApiClient();
-  [project, tasks] = await Promise.all([api.getProject(id), api.listTasks({ projectId: id })]);
+  [project, tasks] = await Promise.all([api.getProject(id), api.listTasks({ projectId: id, status: statusFilter, priority: priorityFilter })]);
 } catch (error) {
   if (error instanceof NexoApiNotFoundError) {
     notFound = true;
@@ -69,8 +77,29 @@ try {
         <div class="detail-layout">
           <section aria-labelledby="tasks-heading">
             <h2 id="tasks-heading">Tareas <span class="muted">({tasks.length})</span></h2>
+            <form method="get" class="filters">
+              <label class="field">Estado
+                <select name="status">
+                  <option value="">Todos</option>
+                  <option value="inbox" selected={statusFilter === 'inbox'}>Inbox</option>
+                  <option value="next" selected={statusFilter === 'next'}>Siguiente</option>
+                  <option value="in_progress" selected={statusFilter === 'in_progress'}>En curso</option>
+                  <option value="blocked" selected={statusFilter === 'blocked'}>Bloqueada</option>
+                  <option value="done" selected={statusFilter === 'done'}>Completada</option>
+                </select>
+              </label>
+              <label class="field">Prioridad
+                <select name="priority">
+                  <option value="">Todas</option>
+                  <option value="low" selected={priorityFilter === 'low'}>Baja</option>
+                  <option value="medium" selected={priorityFilter === 'medium'}>Media</option>
+                  <option value="high" selected={priorityFilter === 'high'}>Alta</option>
+                </select>
+              </label>
+              <button class="button secondary" type="submit">Filtrar</button>
+            </form>
             {tasks.length === 0 ? (
-              <div class="notice"><p>Este proyecto todavía no tiene tareas.</p></div>
+              <div class="notice"><p>{statusFilter || priorityFilter ? 'No hay tareas con estos filtros.' : 'Este proyecto todavía no tiene tareas.'}</p></div>
             ) : (
               <ul class="task-list">
                 {tasks.map((task) => (
@@ -116,6 +145,8 @@ try {
   .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; align-items: start; gap: 1.3rem; }
   h2 { margin: 0 0 1rem; font-size: 1.2rem; }
   .task-list { display: grid; gap: 0.65rem; padding: 0; margin: 0; list-style: none; }
+  .filters { display: flex; align-items: end; gap: 0.6rem; margin-bottom: 1rem; }
+  .filters .field { flex: 1; }
   .task-link { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task-link:hover { border-color: #7faa8c; }
   .task-link small { flex: none; color: #58665c; }
@@ -125,5 +156,5 @@ try {
   .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
   .archive-panel p { color: #58665c; line-height: 1.5; }
   @media (max-width: 900px) { .detail-layout { grid-template-columns: 1fr; } }
-  @media (max-width: 600px) { .quick-add, .task-link { flex-direction: column; align-items: stretch; } }
+  @media (max-width: 600px) { .quick-add, .task-link, .filters { flex-direction: column; align-items: stretch; } }
 </style>
