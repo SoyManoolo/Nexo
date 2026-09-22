@@ -10,7 +10,6 @@ let tasks: Task[] = [];
 let projects: Project[] = [];
 let errorMessage: string | null = null;
 let submittedForm: FormData | null = null;
-const showDone = Astro.url.searchParams.get('status') === 'done';
 const priorityParam = Astro.url.searchParams.get('priority');
 const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
   ? priorityParam as Task['priority']
@@ -26,7 +25,6 @@ const taskStatuses: Array<{ value: Task['status']; label: string }> = [
 
 function inboxHref(view: 'board' | 'list'): string {
   const params = new URLSearchParams();
-  if (showDone) params.set('status', 'done');
   if (priorityFilter) params.set('priority', priorityFilter);
   if (view === 'list') params.set('view', 'list');
   const query = params.toString();
@@ -45,7 +43,7 @@ if (Astro.request.method === 'POST') {
       const taskId = String(form.get('taskId') ?? '');
       if (intent === 'complete') await createApiClient().completeTask(taskId);
       else await createApiClient().reopenTask(taskId);
-      return Astro.redirect(intent === 'complete' ? '/inbox' : '/inbox?status=done', 303);
+      return Astro.redirect('/inbox', 303);
     }
     if (intent !== 'create') throw new RangeError('Acción de tarea desconocida');
     const projectId = String(form.get('projectId') ?? '') || null;
@@ -75,7 +73,7 @@ try {
     api.listProjects({ status: 'active' }),
   ]);
   tasks = tasks.filter((task) =>
-    task.projectId === null && (showDone ? task.status === 'done' : task.status !== 'done'),
+    task.projectId === null,
   );
 } catch (error) {
   console.error('No se pudo cargar el inbox:', error);
@@ -109,13 +107,8 @@ try {
       </form>
     </dialog>
 
-    <div class="tabs">
-      <a href={`/inbox${priorityFilter ? `?priority=${priorityFilter}` : ''}`} aria-current={!showDone ? 'page' : undefined}>Pendientes</a>
-      <a href={`/inbox?status=done${priorityFilter ? `&priority=${priorityFilter}` : ''}`} aria-current={showDone ? 'page' : undefined}>Completadas</a>
-    </div>
     <div class="inbox-toolbar">
       <form method="get" class="filters" data-filter-form>
-      {showDone && <input type="hidden" name="status" value="done" />}
       <label class="field">Prioridad
         <select name="priority">
           <option value="">Todas</option>
@@ -127,7 +120,7 @@ try {
       </form>
       <nav class="view-switcher" aria-label="Vista de tareas"><a href={inboxHref('board')} aria-current={taskView === 'board' ? 'page' : undefined}>Columnas</a><a href={inboxHref('list')} aria-current={taskView === 'list' ? 'page' : undefined}>Filas</a></nav>
     </div>
-    {!errorMessage && tasks.length === 0 && <div class="notice"><h2>{priorityFilter ? 'No hay tareas con esta prioridad' : showDone ? 'Nada completado todavía' : 'Inbox vacío'}</h2><p>{priorityFilter ? 'Prueba con otra prioridad o muestra todas.' : showDone ? 'Las tareas que completes aparecerán aquí.' : 'Cuando captures una tarea, aparecerá aquí.'}</p></div>}
+    {!errorMessage && tasks.length === 0 && <div class="notice"><h2>{priorityFilter ? 'No hay tareas con esta prioridad' : 'Inbox vacío'}</h2><p>{priorityFilter ? 'Prueba con otra prioridad o muestra todas.' : 'Cuando captures una tarea, aparecerá aquí.'}</p></div>}
     {tasks.length > 0 && taskView === 'list' && <ul class="tasks">
       {tasks.map((task) => (
         <li class="task card">
@@ -180,9 +173,6 @@ try {
   .capture-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
   .capture-details .field:first-child { grid-row: span 2; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
-  .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dce2da; }
-  .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
-  .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
   .inbox-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
   .filters { display: flex; align-items: end; gap: 0.6rem; max-width: 15rem; }
   .filters .field { flex: 1; }

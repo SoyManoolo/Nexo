@@ -146,7 +146,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
 
   assert.equal((await submit('/inbox', { intent: 'complete', taskId: tasks[0].id })).status, 303);
   assert.equal(tasks[0].status, 'done');
-  assert.doesNotMatch(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
+  assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
   assert.match(await (await fetch(`${base}/inbox?status=done`)).text(), /Tarea capturada/);
   assert.equal((await submit('/inbox', { intent: 'reopen', taskId: tasks[0].id })).status, 303);
   assert.equal(tasks[0].status, 'inbox');

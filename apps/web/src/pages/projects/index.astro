@@ -4,10 +4,11 @@ import { createApiClient } from '../../lib/api';
 import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
-import type { Project } from '@nexo/contracts';
+import type { Project, Task } from '@nexo/contracts';
 
 let projects: Project[] = [];
 let archived: Project[] = [];
+let tasks: Task[] = [];
 let errorMessage: string | null = null;
 let submittedForm: FormData | null = null;
 const showArchived = Astro.url.searchParams.get('status') === 'archived';
@@ -34,9 +35,10 @@ if (Astro.request.method === 'POST') {
 }
 
 try {
-  [projects, archived] = await Promise.all([
+  [projects, archived, tasks] = await Promise.all([
     createApiClient().listProjects({ status: 'active' }),
     createApiClient().listProjects({ status: 'archived' }),
+    createApiClient().listTasks(),
   ]);
 } catch (error) {
   console.error('No se pudieron cargar los proyectos:', error);
@@ -46,6 +48,12 @@ try {
 }
 
 const visibleProjects = showArchived ? archived : projects;
+const pendingTasksByProject = new Map<string, number>();
+for (const task of tasks) {
+  if (task.projectId && task.status !== 'done') {
+    pendingTasksByProject.set(task.projectId, (pendingTasksByProject.get(task.projectId) ?? 0) + 1);
+  }
+}
 ---
 
 <AppLayout title="Proyectos · Nexo" section="projects">
@@ -56,12 +64,12 @@ const visibleProjects = showArchived ? archived : projects;
         <h1>Proyectos</h1>
         <p class="page-intro">Todo lo que tienes entre manos, en un solo lugar.</p>
       </div>
+      <button class="button" type="button" id="open-project-modal">Crear proyecto</button>
     </header>
 
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/projects">Volver a intentar</a></div>}
 
-    <div class="project-layout">
-      <section aria-label="Lista de proyectos">
+    <section aria-label="Lista de proyectos">
         <div class="tabs">
           <a href="/projects" aria-current={!showArchived ? 'page' : undefined}>Activos ({projects.length})</a>
           <a href="/projects?status=archived" aria-current={showArchived ? 'page' : undefined}>Archivados ({archived.length})</a>
@@ -75,29 +83,36 @@ const visibleProjects = showArchived ? archived : projects;
               <a class="project card" href={`/projects/${project.id}`}>
                 <span class="project-color" style={`background-color: ${project.color ?? '#4d8564'}`} aria-hidden="true"></span>
                 <span><strong>{project.name}</strong>{project.description && <small>{project.description}</small>}</span>
+                <small class="pending-count">{pendingTasksByProject.get(project.id) ?? 0} pendientes</small>
                 <span aria-hidden="true">→</span>
               </a>
             </li>
           ))}
         </ul>
-      </section>
-      {!showArchived && (
-        <section class="card" aria-labelledby="create-project-heading">
-          <h2 id="create-project-heading">Nuevo proyecto</h2>
-          <form method="post" class="form-grid">
+    </section>
+    <dialog class="project-modal" id="project-modal" aria-labelledby="create-project-heading" open={Boolean(submittedForm)}>
+      <form method="post" class="form-grid">
+        <div class="modal-header"><h2 id="create-project-heading">Nuevo proyecto</h2><button class="modal-close" type="button" id="close-project-modal" aria-label="Cerrar">×</button></div>
             <label class="field">Nombre <input name="name" required maxlength="120" autocomplete="off" value={formValue(submittedForm, 'name')} /></label>
             <label class="field">Descripción <textarea name="description" maxlength="2000">{formValue(submittedForm, 'description')}</textarea></label>
             <label class="field">Color <input name="color" type="color" value={formValue(submittedForm, 'color', '#4d8564')} /></label>
-            <button class="button" type="submit">Crear proyecto</button>
-          </form>
-        </section>
-      )}
-    </div>
+        <div class="modal-actions"><button class="button secondary" type="button" id="cancel-project-modal">Cancelar</button><button class="button" type="submit">Crear proyecto</button></div>
+      </form>
+    </dialog>
   </main>
 </AppLayout>
 
+<script>
+  const projectModal = document.querySelector<HTMLDialogElement>('#project-modal');
+  const openProjectModal = document.querySelector<HTMLButtonElement>('#open-project-modal');
+  const closeProjectModal = document.querySelector<HTMLButtonElement>('#close-project-modal');
+  const cancelProjectModal = document.querySelector<HTMLButtonElement>('#cancel-project-modal');
+  openProjectModal?.addEventListener('click', () => projectModal?.showModal());
+  closeProjectModal?.addEventListener('click', () => projectModal?.close());
+  cancelProjectModal?.addEventListener('click', () => projectModal?.close());
+</script>
+
 <style>
-  .project-layout { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: 1.3rem; align-items: start; }
   .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dce2da; }
   .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
   .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
@@ -108,5 +123,12 @@ const visibleProjects = showArchived ? archived : projects;
   .project strong, .project small { display: block; }
   .project small { margin-top: 0.3rem; color: #58665c; line-height: 1.4; }
   .project-color { width: 0.8rem; height: 0.8rem; border-radius: 50%; flex: none; }
-  @media (max-width: 950px) { .project-layout { grid-template-columns: 1fr; } }
+  .pending-count { flex: none; margin: 0; white-space: nowrap; color: #58665c; }
+  .project-modal { width: min(34rem, calc(100% - 2rem)); border: 0; border-radius: 0.9rem; padding: 1.25rem; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
+  .project-modal::backdrop { background: rgb(20 35 25 / 0.45); }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .modal-header h2 { margin: 0; font-size: 1.2rem; }
+  .modal-close { border: 0; border-radius: 0.4rem; padding: 0.1rem 0.45rem; background: transparent; color: #58665c; font-size: 1.8rem; line-height: 1; }
+  .modal-close:hover { background: #edf5ee; color: #27583b; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
 </style>
