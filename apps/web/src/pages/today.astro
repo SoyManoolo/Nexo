@@ -1,9 +1,10 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
 import { createApiClient } from '../lib/api';
-import type { Task } from '@nexo/contracts';
+import type { Project, Task } from '@nexo/contracts';
 
 let tasks: Task[] = [];
+let projects: Project[] = [];
 let errorMessage: string | null = null;
 const timeZone = process.env.NEXO_TIME_ZONE ?? 'Europe/Madrid';
 const dayFormatter = new Intl.DateTimeFormat('sv-SE', { timeZone });
@@ -11,7 +12,9 @@ const today = dayFormatter.format(new Date());
 const localDay = (value: string) => dayFormatter.format(new Date(value));
 
 try {
-  tasks = (await createApiClient().listTasks()).filter((task) =>
+  const api = createApiClient();
+  [tasks, projects] = await Promise.all([api.listTasks(), api.listProjects()]);
+  tasks = tasks.filter((task) =>
     task.status !== 'done' && (
       (task.scheduledFor !== null && task.scheduledFor <= today) ||
       (task.dueAt !== null && localDay(task.dueAt) <= today)
@@ -21,6 +24,23 @@ try {
   console.error('No se pudieron cargar las tareas de hoy:', error);
   errorMessage = 'No se pudo conectar con la API. Vuelve a intentarlo.';
 }
+
+const projectNames = new Map(projects.map((project) => [project.id, project.name]));
+const taskGroups = new Map<string, { label: string; tasks: Task[] }>();
+for (const task of tasks) {
+  const key = task.projectId ?? 'inbox';
+  const label = task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto eliminado' : 'Inbox';
+  const group = taskGroups.get(key) ?? { label, tasks: [] };
+  group.tasks.push(task);
+  taskGroups.set(key, group);
+}
+const groupedTasks = [...taskGroups.entries()]
+  .sort(([leftKey, left], [rightKey, right]) => {
+    if (leftKey === 'inbox') return -1;
+    if (rightKey === 'inbox') return 1;
+    return left.label.localeCompare(right.label, 'es');
+  })
+  .map(([, group]) => group);
 ---
 
 <AppLayout title="Hoy · Nexo" section="today">
@@ -31,17 +51,26 @@ try {
     ) : tasks.length === 0 ? (
       <div class="notice"><h2>Todo al día</h2><p>No hay tareas programadas ni vencidas para hoy.</p></div>
     ) : (
-      <ul class="tasks">
-        {tasks.map((task) => (
-          <li><a class="task card" href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.dueAt && localDay(task.dueAt) <= today ? 'Fecha límite' : 'Programada'} · {task.priority}</small></a></li>
+      <div class="task-groups">
+        {groupedTasks.map((group, index) => (
+          <section class="task-group" aria-labelledby={`group-${index}`}>
+            <h2 id={`group-${index}`}>{group.label} <span class="muted">({group.tasks.length})</span></h2>
+            <ul class="tasks">
+              {group.tasks.map((task) => (
+                <li><a class="task card" href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.dueAt && localDay(task.dueAt) <= today ? 'Fecha límite' : 'Programada'} · {task.priority}</small></a></li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     )}
   </main>
 </AppLayout>
 
 <style>
   .tasks { display: grid; gap: 0.7rem; padding: 0; margin: 0; list-style: none; }
+  .task-groups { display: grid; gap: 1.5rem; }
+  .task-group h2 { margin: 0 0 0.7rem; font-size: 1.05rem; }
   .task { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task:hover { border-color: #7faa8c; }
   .task small { color: #58665c; }
