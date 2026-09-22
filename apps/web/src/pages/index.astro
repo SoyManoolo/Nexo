@@ -24,7 +24,9 @@ const firstOfMonth = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMon
 const periodStart = view === 'week'
   ? addDays(anchor, -mondayOffset(anchor))
   : addDays(firstOfMonth, -mondayOffset(firstOfMonth));
-const days = Array.from({ length: view === 'week' ? 7 : 42 }, (_, index) => dateKey(addDays(periodStart, index)));
+const daysInMonth = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 0)).getUTCDate();
+const monthCells = Math.ceil((mondayOffset(firstOfMonth) + daysInMonth) / 7) * 7;
+const days = Array.from({ length: view === 'week' ? 7 : monthCells }, (_, index) => dateKey(addDays(periodStart, index)));
 const previous = view === 'week'
   ? dateKey(addDays(anchor, -7))
   : dateKey(new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - 1, 1, 12)));
@@ -60,6 +62,7 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
     <header class="page-header"><div><p class="eyebrow">Tu espacio</p><h1>Inicio</h1><p class="page-intro">Tus planes y fechas importantes, de un vistazo.</p></div></header>
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/">Volver a intentar</a></div>}
 
+    <div class="dashboard-grid">
     <section class="calendar card" aria-label="Calendario de tareas">
       <div class="calendar-toolbar">
         <div><h2>Calendario</h2><p class="period">{periodLabel}</p></div>
@@ -91,7 +94,7 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
       <div class="legend"><span><i class="planned-dot"></i> Programada</span><span><i class="deadline-dot"></i> Fecha límite</span></div>
     </section>
 
-    <div class="home-lists">
+    <aside class="home-lists">
       <section class="card" aria-labelledby="pinned-heading">
         <h2 id="pinned-heading">Tareas ancladas</h2>
         {pinned.length ? <ul>{pinned.map((task) => <li><a href={`/tasks/${task.id}`}>{task.title}</a></li>)}</ul> : <p class="empty">Aún no hay tareas ancladas. Abre una tarea y elige «Anclar en inicio».</p>}
@@ -100,13 +103,15 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
         <h2 id="newest-heading">Las 3 tareas más nuevas</h2>
         {newest.length ? <ul>{newest.map((task) => <li><a href={`/tasks/${task.id}`}>{task.title}</a></li>)}</ul> : <p class="empty">Las tareas que crees aparecerán aquí.</p>}
       </section>
+    </aside>
     </div>
   </main>
 </AppLayout>
 
 <style>
-  .home-page { width: min(100% - 2rem, 84rem); }
-  .calendar { padding: 1.2rem; }
+  .home-page { width: min(100% - 2rem, 78rem); }
+  .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; align-items: start; gap: 1rem; }
+  .calendar { padding: 1rem; min-width: 0; }
   .calendar-toolbar, .calendar-controls, .view-switch, .legend { display: flex; align-items: center; gap: 0.5rem; }
   .calendar-toolbar { justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.1rem; }
   .calendar-toolbar h2 { margin: 0 0 0.2rem; }
@@ -118,10 +123,10 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
   .period-nav { border: 1px solid #dce2da; }
   .period-nav:hover, .view-switch a:hover { background: #e0ede0; }
   .calendar-scroll { overflow-x: auto; }
-  .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(6.5rem, 1fr)); min-width: 45.5rem; border-top: 1px solid #dce2da; border-left: 1px solid #dce2da; }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(5.5rem, 1fr)); min-width: 38.5rem; border-top: 1px solid #dce2da; border-left: 1px solid #dce2da; }
   .weekday { padding: 0.5rem; text-align: center; color: #58665c; font-size: 0.78rem; font-weight: 750; background: #f4f7f2; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
-  .calendar-day { min-height: 7.5rem; padding: 0.4rem; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
-  .calendar-grid[data-view="week"] .calendar-day { min-height: 18rem; }
+  .calendar-day { min-height: 5.5rem; padding: 0.4rem; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
+  .calendar-grid[data-view="week"] .calendar-day { min-height: 12rem; }
   .calendar-day.outside-month { background: #f8f9f6; }
   .calendar-day time { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; color: #4d5d52; font-size: 0.8rem; }
   .calendar-day.today time { background: #316d4b; color: #fff; border-radius: 50%; }
@@ -135,11 +140,12 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
   .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
   .legend i { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: #397d53; }
   .legend .deadline-dot { background: #bd673d; }
-  .home-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .home-lists { display: grid; grid-template-columns: 1fr; gap: 1rem; }
   .home-lists ul { list-style: none; margin: 0; padding: 0; }
   .home-lists li + li { border-top: 1px solid #e6ebe5; }
   .home-lists li a { display: block; padding: 0.7rem 0; text-decoration: none; }
   .home-lists li a:hover { color: #316d4b; }
   .empty { margin: 0; color: #58665c; line-height: 1.5; }
+  @media (max-width: 1050px) { .dashboard-grid { grid-template-columns: 1fr; } .home-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 720px) { .home-lists { grid-template-columns: 1fr; } .calendar { padding: 0.8rem; } }
 </style>

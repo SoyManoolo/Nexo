@@ -15,7 +15,7 @@ const { title, section } = Astro.props;
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-top">
-          <a class="brand" href="/" aria-label="Nexo, inicio"><span class="brand-full">nexo</span><span class="brand-short">N</span><span class="brand-dot">.</span></a>
+          <a class="brand" href="/" aria-label="Nexo, inicio"><span class="brand-full">nexo</span><span class="brand-short" hidden>N</span><span class="brand-dot">.</span></a>
           <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Contraer menú" aria-expanded="true" aria-controls="sidebar-nav">☰</button>
         </div>
         <nav id="sidebar-nav" aria-label="Navegación principal">
@@ -29,32 +29,36 @@ const { title, section } = Astro.props;
       </aside>
       <div class="content"><slot /></div>
     </div>
+    <script is:inline>
+      const shell = document.querySelector('.app-shell');
+      const toggle = document.querySelector('#sidebar-toggle');
+      const fullBrand = document.querySelector('.brand-full');
+      const shortBrand = document.querySelector('.brand-short');
+      function setCollapsed(collapsed) {
+        shell?.classList.toggle('is-collapsed', collapsed);
+        if (fullBrand) fullBrand.hidden = collapsed;
+        if (shortBrand) shortBrand.hidden = !collapsed;
+        toggle?.setAttribute('aria-expanded', String(!collapsed));
+        toggle?.setAttribute('aria-label', collapsed ? 'Desplegar menú' : 'Contraer menú');
+      }
+      try { setCollapsed(localStorage.getItem('nexo-sidebar-collapsed') === 'true'); } catch { /* Storage unavailable. */ }
+      toggle?.addEventListener('click', () => {
+        const collapsed = !shell?.classList.contains('is-collapsed');
+        setCollapsed(collapsed);
+        try { localStorage.setItem('nexo-sidebar-collapsed', String(collapsed)); } catch { /* Storage unavailable. */ }
+      });
+    </script>
   </body>
 </html>
 
-<script>
-  const shell = document.querySelector<HTMLElement>('.app-shell');
-  const toggle = document.querySelector<HTMLButtonElement>('#sidebar-toggle');
-  function setCollapsed(collapsed: boolean) {
-    shell?.classList.toggle('is-collapsed', collapsed);
-    toggle?.setAttribute('aria-expanded', String(!collapsed));
-    toggle?.setAttribute('aria-label', collapsed ? 'Desplegar menú' : 'Contraer menú');
-  }
-  try { setCollapsed(localStorage.getItem('nexo-sidebar-collapsed') === 'true'); } catch { /* Storage unavailable. */ }
-  toggle?.addEventListener('click', () => {
-    const collapsed = !shell?.classList.contains('is-collapsed');
-    setCollapsed(collapsed);
-    try { localStorage.setItem('nexo-sidebar-collapsed', String(collapsed)); } catch { /* Storage unavailable. */ }
-  });
-</script>
-
-<style is:global>
+<style is:inline>
   :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #17211c; background: #f7f7f2; }
   * { box-sizing: border-box; }
   body { margin: 0; min-width: 320px; }
   button, input, select, textarea { font: inherit; }
   button { cursor: pointer; }
   a { color: inherit; }
+  [hidden] { display: none !important; }
   :focus-visible { outline: 3px solid #75b88c; outline-offset: 3px; }
   .app-shell { min-height: 100vh; display: grid; grid-template-columns: 13.5rem minmax(0, 1fr); }
   .app-shell.is-collapsed { grid-template-columns: 4.5rem minmax(0, 1fr); }

@@ -124,6 +124,10 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.equal(tasks[0].dueAt, '2026-09-24T10:00:00.000Z');
   const home = await (await fetch(`${base}/?date=2026-09-22`)).text();
   assert.match(home, /Calendario/);
+  assert.match(home, /class="brand-short" hidden/);
+  assert.match(home, /addEventListener\('click'/);
+  assert.match(home, /\.app-shell\.is-collapsed/);
+  assert.match(home, /class="dashboard-grid"/);
   assert.match(home, /Tarea capturada, programada/);
   assert.match(home, /Tarea capturada, fecha límite/);
   assert.match(home, /Las 3 tareas más nuevas/);
