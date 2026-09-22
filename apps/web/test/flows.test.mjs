@@ -52,7 +52,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
       } else value = tasks;
     } else {
       const project = /^\/projects\/([^/]+)(\/archive)?$/.exec(url.pathname);
-      const task = /^\/tasks\/([^/]+)(\/complete)?$/.exec(url.pathname);
+      const task = /^\/tasks\/([^/]+)(\/complete|\/reopen)?$/.exec(url.pathname);
       if (project) {
         value = projects.find((item) => item.id === project[1]);
         if (value && project[2] && req.method === 'POST') {
@@ -62,8 +62,8 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
       } else if (task) {
         value = tasks.find((item) => item.id === task[1]);
         if (value && task[2] && req.method === 'POST') {
-          value.status = 'done';
-          value.completedAt = now;
+          value.status = task[2] === '/complete' ? 'done' : 'inbox';
+          value.completedAt = task[2] === '/complete' ? now : null;
         }
       }
     }
@@ -118,10 +118,13 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.equal(calls.find((call) => call.method === 'POST' && call.path === '/tasks').body.title,
     'Tarea capturada');
 
-  assert.equal((await submit(`/tasks/${tasks[0].id}`, { intent: 'complete' })).status, 303);
+  assert.equal((await submit('/inbox', { intent: 'complete', taskId: tasks[0].id })).status, 303);
   assert.equal(tasks[0].status, 'done');
   assert.doesNotMatch(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
   assert.match(await (await fetch(`${base}/inbox?status=done`)).text(), /Tarea capturada/);
+  assert.equal((await submit('/inbox', { intent: 'reopen', taskId: tasks[0].id })).status, 303);
+  assert.equal(tasks[0].status, 'inbox');
+  assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
 
   const archived = await submit(`/projects/${projects[0].id}`, { intent: 'archive' });
   assert.equal(archived.status, 303);
