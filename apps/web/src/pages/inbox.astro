@@ -15,6 +15,23 @@ const priorityParam = Astro.url.searchParams.get('priority');
 const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
   ? priorityParam as Task['priority']
   : undefined;
+const taskView = Astro.url.searchParams.get('view') === 'list' ? 'list' : 'board';
+const taskStatuses: Array<{ value: Task['status']; label: string }> = [
+  { value: 'inbox', label: 'Inbox' },
+  { value: 'next', label: 'Siguiente' },
+  { value: 'in_progress', label: 'En curso' },
+  { value: 'blocked', label: 'Bloqueada' },
+  { value: 'done', label: 'Completada' },
+];
+
+function inboxHref(view: 'board' | 'list'): string {
+  const params = new URLSearchParams();
+  if (showDone) params.set('status', 'done');
+  if (priorityFilter) params.set('priority', priorityFilter);
+  if (view === 'list') params.set('view', 'list');
+  const query = params.toString();
+  return `/inbox${query ? `?${query}` : ''}`;
+}
 
 if (Astro.request.method === 'POST') {
   if (!isSameOrigin(Astro.request, Astro.url)) {
@@ -68,32 +85,36 @@ try {
 
 <AppLayout title="Inbox · Nexo" section="inbox">
   <main class="page">
-    <header class="page-header"><div><p class="eyebrow">Captura rápida</p><h1>Inbox</h1><p class="page-intro">Anota lo que tienes en mente. Organízalo después.</p></div></header>
+    <header class="page-header"><div><p class="eyebrow">Captura rápida</p><h1>Inbox</h1><p class="page-intro">Anota lo que tienes en mente. Organízalo después.</p></div><button class="button" type="button" id="open-capture-modal">Añadir tarea</button></header>
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/inbox">Volver a intentar</a></div>}
 
-    <form class="capture card" method="post" id="capture-form">
-      <input type="hidden" name="intent" value="create" />
-      <label class="field">Nueva tarea <input name="title" maxlength="200" required placeholder="¿Qué tienes pendiente?" autocomplete="off" value={formValue(submittedForm, 'title')} /></label>
-      <div class="capture-details">
-        <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(submittedForm, 'notes')}</textarea></label>
-        <label class="field">Proyecto
-          <select name="projectId"><option value="">Sin proyecto</option>{projects.map((project) => <option value={project.id} selected={formValue(submittedForm, 'projectId') === project.id}>{project.name}</option>)}</select>
-        </label>
-        <label class="field">Prioridad
-          <select name="priority"><option value="medium" selected={formValue(submittedForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(submittedForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(submittedForm, 'priority') === 'high'}>Alta</option></select>
-        </label>
-        <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(submittedForm, 'scheduledFor')} /></label>
-        <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={formValue(submittedForm, 'dueAt')} /></label>
-        <input name="dueAtIso" type="hidden" />
-      </div>
-      <button class="button" type="submit">Crear tarea</button>
-    </form>
+    <dialog class="task-modal" id="capture-modal" aria-labelledby="capture-modal-title" open={Boolean(submittedForm)}>
+      <form class="capture" method="post" id="capture-form">
+        <input type="hidden" name="intent" value="create" />
+        <div class="modal-header"><h2 id="capture-modal-title">Añadir tarea</h2><button class="modal-close" type="button" id="close-capture-modal" aria-label="Cerrar">×</button></div>
+        <label class="field">Nueva tarea <input name="title" maxlength="200" required placeholder="¿Qué tienes pendiente?" autocomplete="off" value={formValue(submittedForm, 'title')} autofocus /></label>
+        <div class="capture-details">
+          <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(submittedForm, 'notes')}</textarea></label>
+          <label class="field">Proyecto
+            <select name="projectId"><option value="">Sin proyecto</option>{projects.map((project) => <option value={project.id} selected={formValue(submittedForm, 'projectId') === project.id}>{project.name}</option>)}</select>
+          </label>
+          <label class="field">Prioridad
+            <select name="priority"><option value="medium" selected={formValue(submittedForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(submittedForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(submittedForm, 'priority') === 'high'}>Alta</option></select>
+          </label>
+          <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(submittedForm, 'scheduledFor')} /></label>
+          <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={formValue(submittedForm, 'dueAt')} /></label>
+          <input name="dueAtIso" type="hidden" />
+        </div>
+        <div class="modal-actions"><button class="button secondary" type="button" id="cancel-capture-modal">Cancelar</button><button class="button" type="submit">Crear tarea</button></div>
+      </form>
+    </dialog>
 
     <div class="tabs">
       <a href={`/inbox${priorityFilter ? `?priority=${priorityFilter}` : ''}`} aria-current={!showDone ? 'page' : undefined}>Pendientes</a>
       <a href={`/inbox?status=done${priorityFilter ? `&priority=${priorityFilter}` : ''}`} aria-current={showDone ? 'page' : undefined}>Completadas</a>
     </div>
-    <form method="get" class="filters" data-filter-form>
+    <div class="inbox-toolbar">
+      <form method="get" class="filters" data-filter-form>
       {showDone && <input type="hidden" name="status" value="done" />}
       <label class="field">Prioridad
         <select name="priority">
@@ -103,9 +124,11 @@ try {
           <option value="high" selected={priorityFilter === 'high'}>Alta</option>
         </select>
       </label>
-    </form>
+      </form>
+      <nav class="view-switcher" aria-label="Vista de tareas"><a href={inboxHref('board')} aria-current={taskView === 'board' ? 'page' : undefined}>Columnas</a><a href={inboxHref('list')} aria-current={taskView === 'list' ? 'page' : undefined}>Filas</a></nav>
+    </div>
     {!errorMessage && tasks.length === 0 && <div class="notice"><h2>{priorityFilter ? 'No hay tareas con esta prioridad' : showDone ? 'Nada completado todavía' : 'Inbox vacío'}</h2><p>{priorityFilter ? 'Prueba con otra prioridad o muestra todas.' : showDone ? 'Las tareas que completes aparecerán aquí.' : 'Cuando captures una tarea, aparecerá aquí.'}</p></div>}
-    <ul class="tasks">
+    {tasks.length > 0 && taskView === 'list' && <ul class="tasks">
       {tasks.map((task) => (
         <li class="task card">
           <form method="post">
@@ -115,7 +138,13 @@ try {
           <a href={`/tasks/${task.id}`}><span><strong>{task.title}</strong>{task.notes && <small>{task.notes}</small>}</span><small>{task.status.replace('_', ' ')} · {task.priority}</small></a>
         </li>
       ))}
-    </ul>
+    </ul>}
+    {tasks.length > 0 && taskView === 'board' && <div class="task-board" aria-label="Tareas del inbox por estado">
+      {taskStatuses.map(({ value, label }) => {
+        const columnTasks = tasks.filter((task) => task.status === value);
+        return <section class="task-column" aria-labelledby={`inbox-status-${value}`}><h2 id={`inbox-status-${value}`}>{label} <span class="muted">({columnTasks.length})</span></h2>{columnTasks.length === 0 ? <p class="empty-column">Sin tareas</p> : <ul class="board-tasks">{columnTasks.map((task) => <li><a class="card board-task" href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.priority}</small></a></li>)}</ul>}</section>;
+      })}
+    </div>}
   </main>
 </AppLayout>
 
@@ -126,6 +155,13 @@ try {
   });
 
   const captureForm = document.querySelector<HTMLFormElement>('#capture-form');
+  const captureModal = document.querySelector<HTMLDialogElement>('#capture-modal');
+  const openCaptureModal = document.querySelector<HTMLButtonElement>('#open-capture-modal');
+  const closeCaptureModal = document.querySelector<HTMLButtonElement>('#close-capture-modal');
+  const cancelCaptureModal = document.querySelector<HTMLButtonElement>('#cancel-capture-modal');
+  openCaptureModal?.addEventListener('click', () => captureModal?.showModal());
+  closeCaptureModal?.addEventListener('click', () => captureModal?.close());
+  cancelCaptureModal?.addEventListener('click', () => captureModal?.close());
   captureForm?.addEventListener('submit', () => {
     const dueAt = captureForm.elements.namedItem('dueAt') as HTMLInputElement | null;
     const dueAtIso = captureForm.elements.namedItem('dueAtIso') as HTMLInputElement | null;
@@ -134,14 +170,21 @@ try {
 </script>
 
 <style>
-  .capture { display: grid; gap: 0.9rem; margin-bottom: 2rem; }
+  .task-modal { width: min(42rem, calc(100% - 2rem)); border: 0; border-radius: 0.9rem; padding: 0; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
+  .task-modal::backdrop { background: rgb(20 35 25 / 0.45); }
+  .capture { display: grid; gap: 0.9rem; padding: 1.25rem; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .modal-header h2 { margin: 0; font-size: 1.2rem; }
+  .modal-close { border: 0; border-radius: 0.4rem; padding: 0.1rem 0.45rem; background: transparent; color: #58665c; font-size: 1.8rem; line-height: 1; }
+  .modal-close:hover { background: #edf5ee; color: #27583b; }
   .capture-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
   .capture-details .field:first-child { grid-row: span 2; }
-  .capture button { justify-self: start; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
   .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dce2da; }
   .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
   .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
-  .filters { display: flex; align-items: end; gap: 0.6rem; max-width: 22rem; margin-bottom: 1rem; }
+  .inbox-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+  .filters { display: flex; align-items: end; gap: 0.6rem; max-width: 15rem; }
   .filters .field { flex: 1; }
   .tasks { display: grid; gap: 0.7rem; padding: 0; margin: 0; list-style: none; }
   .task { display: flex; align-items: center; gap: 0.8rem; padding: 0.8rem 1rem; }
@@ -151,5 +194,17 @@ try {
   .task-action:hover { background: #edf5ee; }
   .task small { color: #58665c; }
   .task span small { display: block; margin-top: 0.3rem; }
-  @media (max-width: 600px) { .capture-details { grid-template-columns: 1fr; } .task a { flex-direction: column; } }
+  .view-switcher { display: inline-flex; overflow: hidden; border: 1px solid #b9c8bb; border-radius: 0.5rem; }
+  .view-switcher a { padding: 0.38rem 0.65rem; color: #316d4b; font-size: 0.88rem; font-weight: 700; text-decoration: none; }
+  .view-switcher a + a { border-left: 1px solid #b9c8bb; }
+  .view-switcher a[aria-current='page'] { background: #316d4b; color: #fff; }
+  .task-board { display: grid; grid-template-columns: repeat(5, minmax(11rem, 1fr)); gap: 0.8rem; min-height: max(24rem, calc(100vh - 22rem)); overflow-x: auto; padding-bottom: 0.4rem; }
+  .task-column { border: 1px solid #dce2da; border-radius: 0.7rem; padding: 0.8rem; background: #f7faf7; }
+  .task-column h2 { margin: 0 0 0.75rem; color: #365440; font-size: 0.95rem; }
+  .board-tasks { display: grid; gap: 0.5rem; padding: 0; margin: 0; list-style: none; }
+  .board-task { display: grid; gap: 0.35rem; padding: 1rem; text-decoration: none; }
+  .board-task:hover { border-color: #7faa8c; }
+  .board-task small, .empty-column { color: #58665c; }
+  .empty-column { margin: 0; font-size: 0.9rem; }
+  @media (max-width: 600px) { .capture-details { grid-template-columns: 1fr; } .task a, .inbox-toolbar { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } }
 </style>
