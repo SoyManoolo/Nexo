@@ -13,7 +13,14 @@ export const ProjectStatusSchema = z.enum(['active', 'archived']);
 
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
-/** Estados de trabajo de una tarea. `inbox` representa una tarea aún sin clasificar. */
+/**
+ * Estados de trabajo de una tarea:
+ * - `inbox`: tarea capturada, aún sin decidir.
+ * - `next`: siguiente acción disponible.
+ * - `in_progress`: tarea que estás ejecutando.
+ * - `blocked`: necesita algo externo y exige `blockedReason`.
+ * - `done`: completada y exige `completedAt`.
+ */
 export const TaskStatusSchema = z.enum(['inbox', 'next', 'in_progress', 'blocked', 'done']);
 
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
@@ -32,6 +39,54 @@ const ProjectDescriptionInputSchema = z
   .trim()
   .transform((description) => (description === '' ? null : description));
 const ProjectColorInputSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+const TaskTitleInputSchema = z.string().trim().min(1).max(200);
+const TaskNotesInputSchema = z
+  .string()
+  .trim()
+  .transform((notes) => (notes === '' ? null : notes))
+  .nullable();
+const TaskDateInputSchema = z.string().date();
+const TaskTimestampInputSchema = z.string().datetime();
+
+type TaskStateInput = {
+  status?: TaskStatus;
+  completedAt?: string | null;
+  blockedReason?: string | null;
+};
+
+function validateTaskState(input: TaskStateInput, context: z.RefinementCtx): void {
+  if (input.status === 'blocked' && !input.blockedReason?.trim()) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['blockedReason'],
+      message: 'Blocked tasks require a reason',
+    });
+  }
+
+  if (input.status === 'done' && !input.completedAt) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['completedAt'],
+      message: 'Done tasks require completedAt',
+    });
+  }
+
+  if (input.status !== undefined && input.status !== 'blocked' && input.blockedReason) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['blockedReason'],
+      message: 'Only blocked tasks can have a blocked reason',
+    });
+  }
+
+  if (input.status !== undefined && input.status !== 'done' && input.completedAt) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['completedAt'],
+      message: 'Only done tasks can have completedAt',
+    });
+  }
+}
 
 /** Datos aceptados al crear un proyecto. */
 export const CreateProjectInputSchema = z
@@ -75,6 +130,73 @@ export const ListProjectsQuerySchema = z
   .strict();
 
 export type ListProjectsQuery = z.infer<typeof ListProjectsQuerySchema>;
+
+/** Datos aceptados al crear una tarea. */
+export const CreateTaskInputSchema = z
+  .object({
+    title: TaskTitleInputSchema,
+    projectId: EntityIdSchema.nullable().optional(),
+    priority: TaskPrioritySchema.optional(),
+    status: TaskStatusSchema.optional(),
+    scheduledFor: TaskDateInputSchema.nullable().optional(),
+    dueAt: TaskTimestampInputSchema.nullable().optional(),
+    startedAt: TaskTimestampInputSchema.nullable().optional(),
+    completedAt: TaskTimestampInputSchema.nullable().optional(),
+    blockedReason: z.string().trim().min(1).nullable().optional(),
+    notes: TaskNotesInputSchema.optional(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    validateTaskState({ ...input, status: input.status ?? 'inbox' }, context);
+  });
+
+export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>;
+
+/** Datos aceptados al actualizar una tarea. */
+export const UpdateTaskInputSchema = z
+  .object({
+    title: TaskTitleInputSchema.optional(),
+    projectId: EntityIdSchema.nullable().optional(),
+    priority: TaskPrioritySchema.optional(),
+    status: TaskStatusSchema.optional(),
+    scheduledFor: TaskDateInputSchema.nullable().optional(),
+    dueAt: TaskTimestampInputSchema.nullable().optional(),
+    startedAt: TaskTimestampInputSchema.nullable().optional(),
+    completedAt: TaskTimestampInputSchema.nullable().optional(),
+    blockedReason: z.string().trim().min(1).nullable().optional(),
+    notes: TaskNotesInputSchema.optional(),
+  })
+  .strict()
+  .refine((input) => Object.keys(input).length > 0, {
+    message: 'At least one field is required',
+  })
+  .superRefine((input, context) => {
+    validateTaskState(input, context);
+  });
+
+export type UpdateTaskInput = z.infer<typeof UpdateTaskInputSchema>;
+
+/** Parámetros de ruta para identificar una tarea. */
+export const TaskIdParamsSchema = z
+  .object({
+    id: EntityIdSchema,
+  })
+  .strict();
+
+export type TaskIdParams = z.infer<typeof TaskIdParamsSchema>;
+
+/** Filtros disponibles al listar tareas. */
+export const ListTasksQuerySchema = z
+  .object({
+    projectId: EntityIdSchema.optional(),
+    status: TaskStatusSchema.optional(),
+    priority: TaskPrioritySchema.optional(),
+    scheduledFor: TaskDateInputSchema.optional(),
+    dueAt: TaskTimestampInputSchema.optional(),
+  })
+  .strict();
+
+export type ListTasksQuery = z.infer<typeof ListTasksQuerySchema>;
 
 /** Proyecto del espacio personal del usuario. */
 export const ProjectSchema = z.object({
