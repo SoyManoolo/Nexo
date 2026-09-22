@@ -79,6 +79,12 @@ export class ProjectRepository {
   }
 
   async archive(id: string): Promise<Project | null> {
+    const currentProject = await this.findById(id);
+
+    if (!currentProject || currentProject.status === 'archived') {
+      return currentProject;
+    }
+
     const now = new Date();
     const [project] = await db
       .update(projects)

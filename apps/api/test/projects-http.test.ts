@@ -71,8 +71,25 @@ class InMemoryProjectRepository {
     return updated;
   }
 
-  async archive(): Promise<Project | null> {
-    return null;
+  async archive(id: string): Promise<Project | null> {
+    const index = this.projects.findIndex((item) => item.id === id);
+
+    if (index === -1) {
+      return null;
+    }
+
+    if (this.projects[index].status === 'archived') {
+      return this.projects[index];
+    }
+
+    const archived = {
+      ...this.projects[index],
+      status: 'archived' as const,
+      archivedAt: '2026-01-06T00:00:00.000Z',
+      updatedAt: '2026-01-06T00:00:00.000Z',
+    };
+    this.projects[index] = archived;
+    return archived;
   }
 }
 
@@ -190,4 +207,41 @@ test('PATCH /projects/:id returns 404 for a missing project', async () => {
   });
 
   assert.equal(response.status, 404);
+});
+
+test('POST /projects/:id/archive archives an active project', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440001/archive', {
+    method: 'POST',
+  });
+  const archived = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(archived.status, 'archived');
+  assert.equal(archived.archivedAt, '2026-01-06T00:00:00.000Z');
+  assert.equal(archived.updatedAt, '2026-01-06T00:00:00.000Z');
+});
+
+test('POST /projects/:id/archive is idempotent for an archived project', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440000/archive', {
+    method: 'POST',
+  });
+  const archived = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(archived.status, 'archived');
+  assert.equal(archived.archivedAt, '2026-01-02T00:00:00.000Z');
+});
+
+test('POST /projects/:id/archive returns 404 for a missing project', async () => {
+  const response = await request('/projects/550e8400-e29b-41d4-a716-446655440099/archive', {
+    method: 'POST',
+  });
+
+  assert.equal(response.status, 404);
+});
+
+test('POST /projects/:id/archive rejects an invalid UUID', async () => {
+  const response = await request('/projects/not-a-uuid/archive', { method: 'POST' });
+
+  assert.equal(response.status, 400);
 });

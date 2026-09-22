@@ -82,6 +82,17 @@ export function createProjectsRoute(projectService = new ProjectService()): Hono
     return context.json(project);
   });
 
+  projectsRoute.post('/:id/archive', async (context) => {
+    const params = ProjectIdParamsSchema.safeParse(context.req.param());
+
+    if (!params.success) {
+      return context.json({ error: 'validation_error', message: 'Invalid project ID' }, 400);
+    }
+
+    const project = await projectService.archive(params.data.id);
+    return context.json(project);
+  });
+
   return projectsRoute;
 }
 
