@@ -38,7 +38,7 @@ La web consume la API mediante `@nexo/api-client`; no accede directamente a la b
 
 ## Puesta en marcha local
 
-Instala las dependencias y prepara la configuración que leerá Docker Compose y Astro:
+Prepara las dependencias y los archivos de configuración. Usa el bloque de tu sistema:
 
 ```powershell
 pnpm.cmd install
@@ -46,7 +46,13 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 if (-not (Test-Path apps/web/.env)) { Copy-Item apps/web/.env.example apps/web/.env }
 ```
 
-Inicia PostgreSQL y aplica las migraciones desde la raíz del proyecto:
+```sh
+pnpm install
+[ -f .env ] || cp .env.example .env
+[ -f apps/web/.env ] || cp apps/web/.env.example apps/web/.env
+```
+
+Inicia PostgreSQL y aplica las migraciones. En PowerShell:
 
 ```powershell
 docker compose up -d postgres
@@ -54,17 +60,38 @@ $env:DATABASE_URL = 'postgresql://nexo:nexo@127.0.0.1:5432/nexo'
 pnpm.cmd --filter @nexo/api db:migrate
 ```
 
-En una terminal PowerShell, inicia la API. Define `DATABASE_URL` también en esta terminal: las variables `$env:` solo viven en la sesión en que se asignan y la API no carga automáticamente el archivo `.env`.
+En Linux/macOS:
+
+```sh
+docker compose up -d postgres
+export DATABASE_URL='postgresql://nexo:nexo@127.0.0.1:5432/nexo'
+pnpm --filter @nexo/api db:migrate
+```
+
+Arranca la API en una terminal y Astro en otra. En PowerShell, define `DATABASE_URL` también en la terminal de la API: las variables `$env:` solo viven en la sesión donde se asignan, y la API no carga automáticamente el archivo `.env`.
 
 ```powershell
 $env:DATABASE_URL = 'postgresql://nexo:nexo@127.0.0.1:5432/nexo'
 pnpm.cmd dev:api
 ```
 
-En otra terminal, inicia Astro:
+En Linux/macOS, ejecuta esto en la terminal de la API:
+
+```sh
+export DATABASE_URL='postgresql://nexo:nexo@127.0.0.1:5432/nexo'
+pnpm dev:api
+```
+
+En la otra terminal, inicia Astro. PowerShell:
 
 ```powershell
 pnpm.cmd dev
+```
+
+Linux/macOS:
+
+```sh
+pnpm dev
 ```
 
 Abre [http://localhost:4321](http://localhost:4321). La API escucha por defecto en `http://127.0.0.1:3000`.
@@ -77,19 +104,21 @@ Docker Compose lee la configuración de PostgreSQL desde `.env`. La API necesita
 - `NEXO_TIME_ZONE`: zona horaria usada por las vistas Inicio y Hoy. Por defecto, `Europe/Madrid`.
 - `WEB_ALLOWED_HOSTNAME`: nombre de host adicional permitido al compilar la web; es opcional y útil al servirla fuera de `localhost`.
 
-Si PostgreSQL local usa otras credenciales o puerto, actualiza `DATABASE_URL` en las dos terminales donde ejecutas la migración y la API. En PowerShell, usa `pnpm.cmd` si la política de ejecución bloquea `pnpm.ps1`. Cambiar `POSTGRES_PASSWORD` en `.env` no cambia la contraseña de un volumen PostgreSQL que ya se haya inicializado.
+Si PostgreSQL local usa otras credenciales o puerto, actualiza `DATABASE_URL` en las terminales donde ejecutas la migración y la API. En PowerShell, usa `pnpm.cmd` si la política de ejecución bloquea `pnpm.ps1`; en Linux/macOS usa `pnpm`. Cambiar `POSTGRES_PASSWORD` en `.env` no cambia la contraseña de un volumen PostgreSQL que ya se haya inicializado.
 
 ## Comandos
 
 ```sh
-pnpm.cmd dev                 # Web Astro en desarrollo (PowerShell)
-pnpm.cmd dev:api             # API HTTP en desarrollo (PowerShell)
-pnpm.cmd check
-pnpm.cmd build
-pnpm.cmd --filter @nexo/web test
-pnpm.cmd --filter @nexo/api test
-pnpm.cmd --filter @nexo/api-client test
+pnpm dev                 # Web Astro en desarrollo (Linux/macOS)
+pnpm dev:api             # API HTTP en desarrollo (Linux/macOS)
+pnpm check
+pnpm build
+pnpm --filter @nexo/web test
+pnpm --filter @nexo/api test
+pnpm --filter @nexo/api-client test
 ```
+
+En PowerShell, sustituye `pnpm` por `pnpm.cmd` si la política de ejecución bloquea el script `pnpm.ps1`.
 
 Para las migraciones, desde la raíz:
 
