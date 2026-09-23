@@ -10,7 +10,7 @@ import {
   type GithubCommit, type GithubIntegrationStatus, type GithubRepository, type ImportGithubProjectInput,
   type ListTasksQuery, type Project, type Task, type UpdateProjectInput, type UpdateTaskInput,
 } from '@nexo/contracts';
-import { z, type ZodType } from 'zod';
+import { z } from 'zod';
 
 const ApiErrorBodySchema = z.object({ error: z.string().optional(), message: z.string().optional() });
 
@@ -128,7 +128,7 @@ export class NexoApiClient {
     if (!response.ok) throw await this.toHttpError(response);
   }
 
-  private async request<T>(path: string, options: { method: string; body?: unknown; query?: Record<string, string | undefined> }, schema: ZodType<T>): Promise<T> {
+  private async request<S extends z.ZodTypeAny>(path: string, options: { method: string; body?: unknown; query?: Record<string, string | undefined> }, schema: S): Promise<z.output<S>> {
     const url = new URL(path, this.baseUrl);
     for (const [key, value] of Object.entries(options.query ?? {})) if (value !== undefined) url.searchParams.set(key, value);
     const controller = new AbortController();
