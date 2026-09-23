@@ -153,14 +153,6 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
           </div>
         </header>
         {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
-        <section class="github-panel card" aria-labelledby="github-commits-heading">
-          <div class="github-panel-heading"><div><p class="eyebrow">Repositorio vinculado</p><h2 id="github-commits-heading">{project.githubRepository ?? 'Conecta un repositorio de GitHub'}</h2></div>
-            {project.githubRepository && <a class="button secondary" href={`https://github.com/${project.githubRepository}`} target="_blank" rel="noreferrer">Abrir en GitHub ↗</a>}
-          </div>
-          {!project.githubRepository ? <p>Vincula un repositorio desde «Detalles del proyecto» para ver sus commits y mantener aquí las tareas relacionadas.</p> : githubError ? <p class="github-error">{githubError} <a href="/settings">Abrir Ajustes</a></p> : commits.length === 0 ? <p class="muted">No hay commits recientes.</p> : (
-            <ol class="commit-list">{commits.map((commit) => <li><a href={commit.url} target="_blank" rel="noreferrer"><strong>{commit.message}</strong><code>{commit.sha.slice(0, 7)}</code></a><small>{commit.author ?? 'Autor desconocido'} · {new Date(commit.committedAt).toLocaleString('es-ES')}</small></li>)}</ol>
-          )}
-        </section>
         <section aria-labelledby="tasks-heading">
             <div class="tasks-header">
               <h2 id="tasks-heading">Tareas <span class="muted">({tasks.length})</span></h2>
@@ -246,6 +238,17 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               </>
             )}
         </section>
+        <section class="github-panel card" aria-labelledby="github-commits-heading">
+          <div class="github-panel-heading"><div><p class="eyebrow">Repositorio vinculado</p><h2 id="github-commits-heading">{project.githubRepository ?? 'Conecta un repositorio de GitHub'}</h2></div>
+            {project.githubRepository && <a class="button secondary" href={`https://github.com/${project.githubRepository}`} target="_blank" rel="noreferrer">Abrir en GitHub ↗</a>}
+          </div>
+          {!project.githubRepository ? <p>Vincula un repositorio desde «Detalles del proyecto» para ver sus commits y mantener aquí las tareas relacionadas.</p> : githubError ? <p class="github-error">{githubError} <a href="/settings">Abrir Ajustes</a></p> : commits.length === 0 ? <p class="muted">No hay commits recientes.</p> : (
+            <>
+              <ol class="commit-list">{commits.map((commit, index) => <li hidden={index >= 5} data-commit-item><a href={commit.url} target="_blank" rel="noreferrer"><strong>{commit.message}</strong><code>{commit.sha.slice(0, 7)}</code></a><small>{commit.author ?? 'Autor desconocido'} · {new Date(commit.committedAt).toLocaleString('es-ES')}</small></li>)}</ol>
+              {commits.length > 5 && <button class="button secondary commit-toggle" type="button" data-commit-toggle aria-expanded="false">Ver más commits</button>}
+            </>
+          )}
+        </section>
         <dialog class="task-modal project-modal" id="project-modal" aria-labelledby="project-modal-title" open={Boolean(updateForm)}>
           <form method="post" class="quick-add">
             <div class="modal-header">
@@ -299,6 +302,15 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   const filterForm = document.querySelector<HTMLFormElement>('[data-filter-form]');
   filterForm?.addEventListener('change', (event) => {
     if (event.target instanceof HTMLSelectElement) filterForm.requestSubmit();
+  });
+
+  const commitToggle = document.querySelector<HTMLButtonElement>('[data-commit-toggle]');
+  const commitItems = document.querySelectorAll<HTMLElement>('[data-commit-item]');
+  commitToggle?.addEventListener('click', () => {
+    const expanded = commitToggle.getAttribute('aria-expanded') === 'true';
+    commitItems.forEach((item, index) => { item.hidden = !expanded && index >= 5; });
+    commitToggle.setAttribute('aria-expanded', String(!expanded));
+    commitToggle.textContent = expanded ? 'Ver más commits' : 'Ver menos commits';
   });
 
   const taskModal = document.querySelector<HTMLDialogElement>('#task-modal');
@@ -416,6 +428,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .commit-list a:hover strong { color: var(--accent-text); }
   .commit-list code { flex: none; color: var(--subtle); }
   .commit-list small { color: var(--subtle); }
+  .commit-toggle { margin-top: 1rem; }
   .github-error { color: #9b382c !important; }
   .project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.65rem; }
   .view-switcher { display: inline-flex; overflow: hidden; border: 1px solid #b9c8bb; border-radius: 0.5rem; }
