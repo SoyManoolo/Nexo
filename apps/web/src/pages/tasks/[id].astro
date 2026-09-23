@@ -108,7 +108,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
             <form method="post" class="form-grid" id="task-form">
               <input type="hidden" name="intent" value="save" />
               <label class="field">Título <input name="title" required maxlength="200" value={formValue(submittedForm, 'title', task.title)} /></label>
-              <label class="field">Notas <textarea name="notes" maxlength="2000">{formValue(submittedForm, 'notes', task.notes ?? '')}</textarea></label>
+              <label class="field">Notas <textarea id="task-notes" name="notes" maxlength="2000">{formValue(submittedForm, 'notes', task.notes ?? '')}</textarea></label>
               <label class="field">Proyecto
                 <select name="projectId">
                   <option value="" selected={formValue(submittedForm, 'projectId', task.projectId ?? '') === ''}>Sin proyecto (inbox)</option>

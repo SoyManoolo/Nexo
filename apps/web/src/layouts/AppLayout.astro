@@ -82,6 +82,10 @@ const { title, section } = Astro.props;
       const taskModal = document.querySelector('#task-detail-modal');
       const taskModalContent = taskModal?.querySelector('.task-detail-content');
       function closeTaskModal() { taskModal?.close(); }
+      function setTaskModalScrollLock(locked) {
+        document.documentElement.classList.toggle('task-modal-open', locked);
+        document.body.classList.toggle('task-modal-open', locked);
+      }
       function renderTaskModal(html, taskUrl) {
         if (!taskModalContent || !taskModal) return;
         const parsed = new DOMParser().parseFromString(html, 'text/html');
@@ -93,7 +97,10 @@ const { title, section } = Astro.props;
         });
         taskModalContent.replaceChildren(page);
         initializeTaskForm(taskModalContent);
-        if (!taskModal.open) taskModal.showModal();
+        if (!taskModal.open) {
+          taskModal.showModal();
+          setTaskModalScrollLock(true);
+        }
       }
       function initializeTaskForm(root) {
         const form = root.querySelector('#task-form');
@@ -145,6 +152,7 @@ const { title, section } = Astro.props;
         }
       });
       taskModal?.addEventListener('click', (event) => { if (event.target === taskModal) closeTaskModal(); });
+      taskModal?.addEventListener('close', () => setTaskModalScrollLock(false));
       taskModal?.querySelector('.task-detail-close')?.addEventListener('click', closeTaskModal);
       taskModal?.addEventListener('click', (event) => {
         if (event.target.closest('.back-link')) { event.preventDefault(); closeTaskModal(); }
@@ -267,11 +275,13 @@ const { title, section } = Astro.props;
   .task-detail-content .task-layout > .card { padding: 1rem; }
   .task-detail-content .task-layout h2 { margin-bottom: 0.7rem; }
   .task-detail-content .field textarea { min-height: 4rem; }
+  .task-detail-content #task-notes { min-height: 8rem; }
   .task-detail-content .actions { display: grid; gap: 0.7rem; }
   .task-detail-content .actions form, .task-detail-content .actions button { width: 100%; }
   .task-detail-close { position: absolute; z-index: 2; top: 0.8rem; right: 0.8rem; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; margin: 0; padding: 0 0 0.12rem; border: 1px solid var(--border); border-radius: 50%; background: var(--surface-muted); color: var(--subtle); font-size: 1.45rem; line-height: 1; transition: background 120ms ease, color 120ms ease, border-color 120ms ease; }
   .task-detail-close:hover { border-color: var(--accent-text); background: var(--accent-soft); color: var(--text); }
   .task-detail-close:focus-visible { outline: 3px solid #75b88c; outline-offset: 2px; }
+  :root.task-modal-open, body.task-modal-open { overflow: hidden; }
   @media (max-width: 900px) { .task-detail-content .task-layout { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .task-detail-content .field-pair { grid-template-columns: 1fr; } }
   @media (max-width: 720px) {
