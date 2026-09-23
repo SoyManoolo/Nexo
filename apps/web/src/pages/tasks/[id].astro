@@ -154,23 +154,6 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               <button class="button" type="submit">Guardar cambios</button>
             </form>
           </section>
-          <section class="card attachments">
-            <h2>Archivos adjuntos</h2>
-            <form method="post" enctype="multipart/form-data" class="attachment-upload">
-              <input type="hidden" name="intent" value="add-attachment" />
-              <label class="field">Adjuntar archivo <input type="file" name="file" accept="image/png,image/jpeg,image/webp,application/pdf,text/plain" required /></label>
-              <small>PNG, JPEG, WebP, PDF o TXT · máximo 10 MB</small>
-              <button class="button secondary" type="submit">Subir archivo</button>
-            </form>
-            {attachments.length ? <ul class="attachment-list">{attachments.map((attachment) => (
-              <li>
-                {attachment.mimeType.startsWith('image/') && <a href={`/tasks/${id}/attachments/${attachment.id}`} target="_blank" rel="noreferrer"><img src={`/tasks/${id}/attachments/${attachment.id}`} alt={`Vista previa: ${attachment.fileName}`} loading="lazy" /></a>}
-                <a class="attachment-name" href={`/tasks/${id}/attachments/${attachment.id}`} target="_blank" rel="noreferrer">{attachment.fileName}</a>
-                <small>{(attachment.size / 1024).toFixed(0)} KB</small>
-                <form method="post"><input type="hidden" name="intent" value="remove-attachment" /><input type="hidden" name="attachmentId" value={attachment.id} /><button type="submit" class="link-button">Eliminar</button></form>
-              </li>
-            ))}</ul> : <p class="muted">Aún no hay archivos adjuntos.</p>}
-          </section>
           <aside class="card actions">
             <h2>Acciones rápidas</h2>
             <form method="post"><button class="button secondary" type="submit" name="intent" value={task.pinned ? 'unpin' : 'pin'}>{task.pinned ? 'Desanclar de inicio' : 'Anclar en inicio'}</button></form>
@@ -181,6 +164,23 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
             )}
             {task.projectId && <form method="post"><button class="button secondary" type="submit" name="intent" value="move-to-inbox">Mover al inbox</button></form>}
           </aside>
+          <section class="card attachments">
+            <h2>Archivos adjuntos</h2>
+            <form method="post" enctype="multipart/form-data" class="attachment-upload">
+              <input type="hidden" name="intent" value="add-attachment" />
+              <label class="field">Adjuntar archivo <input type="file" name="file" accept="image/png,image/jpeg,image/webp,application/pdf,text/plain" required /></label>
+              <small>PNG, JPEG, WebP, PDF o TXT · máximo 10 MB</small>
+              <button class="button secondary" type="submit">Subir archivo</button>
+            </form>
+            {attachments.length ? <ul class="attachment-list">{attachments.map((attachment) => (
+              <li>
+                {attachment.mimeType.startsWith('image/') && <a class="attachment-preview" data-lightbox href={`/tasks/${id}/attachments/${attachment.id}`}><img src={`/tasks/${id}/attachments/${attachment.id}`} alt={`Ampliar: ${attachment.fileName}`} loading="lazy" /></a>}
+                <a class="attachment-name" href={`/tasks/${id}/attachments/${attachment.id}`} target="_blank" rel="noreferrer">{attachment.fileName}</a>
+                <small>{(attachment.size / 1024).toFixed(0)} KB</small>
+                <form method="post"><input type="hidden" name="intent" value="remove-attachment" /><input type="hidden" name="attachmentId" value={attachment.id} /><button type="submit" class="link-button">Eliminar</button></form>
+              </li>
+            ))}</ul> : <p class="muted">Aún no hay archivos adjuntos.</p>}
+          </section>
         </div>
       </>
     ) : (
@@ -231,15 +231,18 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
   .field[hidden] { display: none; }
   .actions { display: grid; gap: 0.8rem; }
   .actions form, .actions button { width: 100%; }
-  .attachments { grid-column: 1 / -1; }
+  .attachments { grid-column: 2; }
   .attachment-upload { display: flex; align-items: end; flex-wrap: wrap; gap: 0.7rem; margin-bottom: 1rem; }
-  .attachment-upload .field { flex: 1 1 18rem; }
-  .attachment-upload small { color: var(--subtle); }
-  .attachment-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0.8rem; list-style: none; padding: 0; }
+  .attachment-upload .field { flex: 1 1 100%; }
+  .attachment-upload small { color: var(--subtle); line-height: 1.4; }
+  .attachment-upload .button { width: 100%; min-height: 2.7rem; border: 1px solid var(--accent-text); border-radius: 0.65rem; padding: 0.7rem 0.85rem; background: var(--accent-soft); color: var(--accent-text); font-weight: 750; transition: background 120ms ease, transform 120ms ease; }
+  .attachment-upload .button:hover { background: var(--border); transform: translateY(-1px); }
+  .attachment-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.8rem; list-style: none; padding: 0; margin: 0; }
   .attachment-list li { display: grid; align-content: start; gap: 0.35rem; min-width: 0; }
-  .attachment-list img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 0.5rem; background: var(--surface-muted); }
+  .attachment-preview { display: block; width: 100%; overflow: hidden; border: 1px solid var(--border); border-radius: 0.55rem; cursor: zoom-in; }
+  .attachment-list img { display: block; width: 100%; max-width: 100%; height: auto; max-height: 14rem; object-fit: contain; background: var(--surface-muted); }
   .attachment-name { overflow-wrap: anywhere; }
   .link-button { border: 0; padding: 0; background: none; color: var(--accent-text); text-decoration: underline; cursor: pointer; }
-  @media (max-width: 900px) { .task-layout { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .task-layout { grid-template-columns: 1fr; } .attachments { grid-column: 1; } }
   @media (max-width: 600px) { .field-pair { grid-template-columns: 1fr; } }
 </style>

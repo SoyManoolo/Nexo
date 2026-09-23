@@ -1,7 +1,7 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
 import { createApiClient } from '../lib/api';
-import type { Task } from '@nexo/contracts';
+import { TaskStatusLabels, type Project, type Task } from '@nexo/contracts';
 
 const timeZone = process.env.NEXO_TIME_ZONE ?? 'Europe/Madrid';
 const localDay = new Intl.DateTimeFormat('sv-SE', { timeZone });
@@ -39,14 +39,38 @@ const shortDate = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'sho
 const periodLabel = view === 'month' ? monthLabel : `${shortDate.format(periodStart)} – ${shortDate.format(addDays(periodStart, 6))}`;
 const dayLabel = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 
+const searchQuery = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 120);
+const searchStatus = Astro.url.searchParams.get('status') ?? '';
+const searchPriority = Astro.url.searchParams.get('priority') ?? '';
+const searchProject = Astro.url.searchParams.get('project') ?? '';
+const searchTag = (Astro.url.searchParams.get('tag') ?? '').trim().slice(0, 40);
+const validStatuses = ['pending', 'in_progress', 'in_review', 'done', 'blocked'];
+const validPriorities = ['low', 'medium', 'high'];
+const hasSearch = Boolean(searchQuery || searchStatus || searchPriority || searchProject || searchTag);
+
 let tasks: Task[] = [];
+let projects: Project[] = [];
 let errorMessage: string | null = null;
 try {
-  tasks = await createApiClient().listTasks();
+  const api = createApiClient();
+  [tasks, projects] = await Promise.all([api.listTasks(), api.listProjects()]);
 } catch (error) {
   console.error('No se pudieron cargar las tareas del inicio:', error);
   errorMessage = 'No se pudieron cargar las tareas. Comprueba la conexión con la API.';
 }
+
+const projectNames = new Map(projects.map((project) => [project.id, project.name]));
+const normalizedSearch = searchQuery.toLocaleLowerCase('es');
+const searchedTasks = tasks.filter((task) => {
+  if (validStatuses.includes(searchStatus) && task.status !== searchStatus) return false;
+  if (validPriorities.includes(searchPriority) && task.priority !== searchPriority) return false;
+  if (searchProject && task.projectId !== searchProject) return false;
+  if (searchTag && !task.tags.some((tag) => tag.toLocaleLowerCase('es') === searchTag.toLocaleLowerCase('es'))) return false;
+  if (!normalizedSearch) return true;
+  const searchable = [task.title, task.notes ?? '', task.blockedReason ?? '', ...task.tags, projectNames.get(task.projectId ?? '') ?? ''].join(' ').toLocaleLowerCase('es');
+  return searchable.includes(normalizedSearch);
+});
+const searchedProjects = projects.filter((project) => !normalizedSearch || `${project.name} ${project.description ?? ''} ${project.notes ?? ''}`.toLocaleLowerCase('es').includes(normalizedSearch));
 
 const pinned = tasks.filter((task) => task.pinned);
 const newest = [...tasks].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)).slice(0, 3);
@@ -61,6 +85,24 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
   <main class="page home-page">
     <header class="page-header"><div><p class="eyebrow">Tu espacio</p><h1>Inicio</h1><p class="page-intro">Tus planes y fechas importantes, de un vistazo.</p></div></header>
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/">Volver a intentar</a></div>}
+
+    <section class="home-search card" aria-label="Búsqueda global">
+      <form method="get" class="home-search-form">
+        <label class="field search-query">Buscar tareas o proyectos <input name="q" type="search" value={searchQuery} placeholder="Nombre, nota o etiqueta" /></label>
+        <label class="field">Estado <select name="status"><option value="">Todos</option>{validStatuses.map((value) => <option value={value} selected={searchStatus === value}>{TaskStatusLabels[value as Task['status']]}</option>)}</select></label>
+        <label class="field">Prioridad <select name="priority"><option value="">Todas</option>{validPriorities.map((value) => <option value={value} selected={searchPriority === value}>{value === 'high' ? 'Alta' : value === 'medium' ? 'Media' : 'Baja'}</option>)}</select></label>
+        <label class="field">Proyecto <select name="project"><option value="">Todos</option>{projects.map((project) => <option value={project.id} selected={searchProject === project.id}>{project.name}</option>)}</select></label>
+        <label class="field">Etiqueta <input name="tag" value={searchTag} maxlength="40" placeholder="Exacta" /></label>
+        <button class="button" type="submit">Buscar</button>
+      </form>
+      {hasSearch && <div class="home-search-results">
+        <h2>Resultados</h2>
+        <div class="search-result-groups">
+          <section><h3>Proyectos ({searchedProjects.length})</h3>{searchedProjects.length ? <ul>{searchedProjects.slice(0, 5).map((project) => <li><a href={`/projects/${project.id}`}>{project.name}</a></li>)}</ul> : <p class="empty">No hay proyectos coincidentes.</p>}</section>
+          <section><h3>Tareas ({searchedTasks.length})</h3>{searchedTasks.length ? <ul>{searchedTasks.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · {TaskStatusLabels[task.status]}{task.tags.length ? ` · ${task.tags.join(', ')}` : ''}</small></a></li>)}</ul> : <p class="empty">No hay tareas coincidentes.</p>}</section>
+        </div>
+      </div>}
+    </section>
 
     <div class="dashboard-grid">
     <section class="calendar card" aria-label="Calendario de tareas">
@@ -109,6 +151,19 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
 </AppLayout>
 
 <style>
+  .home-search { margin-bottom: 1rem; }
+  .home-search-form { display: grid; grid-template-columns: minmax(13rem, 2fr) repeat(4, minmax(7rem, 1fr)) auto; align-items: end; gap: 0.7rem; }
+  .home-search-form .field { min-width: 0; }
+  .home-search-form .button { min-height: 2.65rem; white-space: nowrap; }
+  .home-search-results { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1rem; }
+  .home-search-results h2 { margin: 0 0 0.8rem; font-size: 1.1rem; }
+  .search-result-groups { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; }
+  .search-result-groups h3 { margin: 0 0 0.4rem; font-size: 0.9rem; }
+  .search-result-groups ul { list-style: none; margin: 0; padding: 0; }
+  .search-result-groups li + li { border-top: 1px solid var(--border); }
+  .search-result-groups li a { display: grid; gap: 0.2rem; padding: 0.55rem 0; text-decoration: none; }
+  .search-result-groups li a:hover { color: var(--accent-text); }
+  .search-result-groups small { color: var(--subtle); }
   .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; gap: 1.25rem; }
   .calendar { padding: 1rem; min-width: 0; }
   .calendar-toolbar, .calendar-controls, .view-switch, .legend { display: flex; align-items: center; gap: 0.5rem; }
@@ -145,6 +200,6 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
   .home-lists li a { display: block; padding: 0.7rem 0; text-decoration: none; }
   .home-lists li a:hover { color: #316d4b; }
   .empty { margin: 0; color: #58665c; line-height: 1.5; }
-  @media (max-width: 1050px) { .dashboard-grid { grid-template-columns: 1fr; } .home-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 720px) { .home-lists { grid-template-columns: 1fr; } .calendar { padding: 0.8rem; } }
+  @media (max-width: 1050px) { .dashboard-grid { grid-template-columns: 1fr; } .home-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); } .home-search-form { grid-template-columns: repeat(3, minmax(0, 1fr)); } .search-query { grid-column: span 2; } }
+  @media (max-width: 720px) { .home-lists { grid-template-columns: 1fr; } .calendar { padding: 0.8rem; } .home-search-form { grid-template-columns: 1fr 1fr; } .search-query { grid-column: span 2; } .home-search-form .button { grid-column: 1 / -1; } .search-result-groups { grid-template-columns: 1fr; } }
 </style>

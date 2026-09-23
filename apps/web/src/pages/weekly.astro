@@ -55,10 +55,10 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
     <header class="page-header"><div><p class="eyebrow">Revisión semanal</p><h1>Esta semana</h1><p class="page-intro">{dateRange} · Un vistazo a lo que avanzó y a lo que requiere atención.</p></div></header>
     {errorMessage ? <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/weekly">Volver a intentar</a></div> : <>
       <section class="metrics" aria-label="Resumen de la semana">
-        <a class="metric card" href="/search?status=done"><span>Completadas</span><strong>{completedThisWeek}</strong><small>{completedThisWeek > completedLastWeek ? `+${completedThisWeek - completedLastWeek} respecto a la semana pasada` : completedThisWeek < completedLastWeek ? `${completedThisWeek - completedLastWeek} respecto a la semana pasada` : 'Igual que la semana pasada'}</small></a>
-        <a class="metric card" href="/search"><span>Nuevas esta semana</span><strong>{createdThisWeek}</strong><small>Tareas capturadas</small></a>
-        <a class="metric card" href="/search?status=blocked"><span>Bloqueadas</span><strong>{blocked.length}</strong><small>Revisa qué las desbloquea</small></a>
-        <a class="metric card" href="/search"><span>Vencidas</span><strong>{overdue.length}</strong><small>Con fecha límite anterior a hoy</small></a>
+        <a class="metric card" href="/?status=done"><span>Completadas</span><strong>{completedThisWeek}</strong><small>{completedThisWeek > completedLastWeek ? `+${completedThisWeek - completedLastWeek} respecto a la semana pasada` : completedThisWeek < completedLastWeek ? `${completedThisWeek - completedLastWeek} respecto a la semana pasada` : 'Igual que la semana pasada'}</small></a>
+        <a class="metric card" href="/"><span>Nuevas esta semana</span><strong>{createdThisWeek}</strong><small>Tareas capturadas</small></a>
+        <a class="metric card" href="/?status=blocked"><span>Bloqueadas</span><strong>{blocked.length}</strong><small>Revisa qué las desbloquea</small></a>
+        <a class="metric card" href="/"><span>Vencidas</span><strong>{overdue.length}</strong><small>Con fecha límite anterior a hoy</small></a>
       </section>
       <div class="weekly-grid">
         <section class="card completion-chart"><h2>Completadas por día</h2><div class="bars" role="img" aria-label={days.map((day) => `${day.label}: ${day.count}`).join(', ')}>{days.map((day) => <div class="bar-item"><strong>{day.count || ''}</strong><span class="bar-track"><i style={`--bar-height:${Math.max(5, day.count / maxDaily * 100)}%`}></i></span><small>{day.label}</small></div>)}</div></section>
