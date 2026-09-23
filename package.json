@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "pnpm --filter @nexo/web dev",
     "dev:api": "pnpm --filter @nexo/api dev",
-    "build": "pnpm --filter @nexo/web build && pnpm --filter @nexo/api build",
-    "check": "pnpm --filter @nexo/web check && pnpm --filter @nexo/api check"
+    "build": "pnpm --filter @nexo/web build && pnpm --filter @nexo/api build && pnpm --filter @nexo/mcp build",
+    "check": "pnpm --filter @nexo/web check && pnpm --filter @nexo/api check && pnpm --filter @nexo/mcp check"
   },
   "devDependencies": {
     "prettier": "^3.6.2"

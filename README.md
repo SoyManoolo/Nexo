@@ -13,7 +13,7 @@ La aplicación web y la API están implementadas y usan PostgreSQL. Actualmente 
 - consultar Inicio (calendario mensual o semanal, tareas ancladas y recientes), Inbox, Hoy y Proyectos;
 - usar tema claro u oscuro y contraer la navegación lateral.
 
-El servidor MCP está creado como espacio reservado, pero todavía no ofrece herramientas ni se distribuye como integración funcional.
+El servidor MCP expone proyectos y tareas por Streamable HTTP para conectarse a Codex y Claude Code.
 
 ## Estructura
 
@@ -21,7 +21,7 @@ El servidor MCP está creado como espacio reservado, pero todavía no ofrece her
 apps/
   web/          Aplicación Astro renderizada en servidor
   api/          API HTTP con Hono, Drizzle ORM y PostgreSQL
-  mcp/          Punto de entrada MCP pendiente de implementación
+  mcp/          Servidor MCP Streamable HTTP
 packages/
   contracts/    Esquemas Zod y tipos compartidos
   api-client/   Cliente HTTP tipado para los consumidores de la API
@@ -135,6 +135,38 @@ pnpm --filter @nexo/api db:studio
 ## API HTTP
 
 La API expone `GET /health`, recursos de proyectos bajo `/projects` y tareas bajo `/tasks`. Los contratos de entrada y salida se validan con Zod y están compartidos con los consumidores. La documentación detallada de rutas y ejemplos está en [apps/api/README.md](C:/Users/eriks/Documents/GitHub/Nexo/apps/api/README.md).
+
+## Servidor MCP
+
+El servidor independiente de `apps/mcp` publica `http://127.0.0.1:3100/mcp` mediante Streamable HTTP y reutiliza el cliente de la API. Ofrece `list_projects`, `get_project`, `list_tasks`, `get_task`, `create_task` y `update_task`. Necesita que la API esté activa; configura `NEXO_API_BASE_URL` si no escucha en `http://127.0.0.1:3000`.
+
+En otra terminal, arráncalo localmente:
+
+```powershell
+pnpm.cmd --filter @nexo/mcp dev
+```
+
+Comprueba el catálogo con el Inspector MCP:
+
+```powershell
+pnpm.cmd --filter @nexo/mcp inspect
+```
+
+Para abrir el Inspector visual en lugar del modo CLI, ejecuta `pnpm.cmd --filter @nexo/mcp exec mcp-inspector` y configura el transporte **Streamable HTTP** con `http://127.0.0.1:3100/mcp`.
+
+### Conexión desde Codex y Claude Code
+
+Cuando el servicio esté desplegado en el homelab, apunta ambos clientes a `https://<nombre-del-homelab>.<tailnet>.ts.net/mcp` o a la dirección HTTPS que publique Tailscale Serve. El MCP debe escuchar en una interfaz alcanzable por el proxy; establece `MCP_HOST=0.0.0.0` en ese despliegue. Define `MCP_AUTH_TOKEN` y envía el mismo valor como `Authorization: Bearer ...` en cada cliente. No publiques el puerto directamente en Internet.
+
+Codex permite registrarlo con `codex mcp add nexo --url https://<host-tailnet>/mcp`; para enviar el bearer token, configura en `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.nexo]
+url = "https://<host-tailnet>/mcp"
+bearer_token_env_var = "NEXO_MCP_TOKEN"
+```
+
+Para Claude Code, usa `claude mcp add --transport http --scope user nexo https://<host-tailnet>/mcp --header "Authorization: Bearer $NEXO_MCP_TOKEN"` (en PowerShell, sustituye `$NEXO_MCP_TOKEN` por `$env:NEXO_MCP_TOKEN`). Verifica la conexión con `codex mcp list` o `/mcp` en Claude Code.
 
 ## Base de datos
 
