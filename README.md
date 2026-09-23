@@ -39,7 +39,19 @@ La web consume la API mediante `@nexo/api-client`; no accede directamente a la b
 
 ## Puesta en marcha local
 
-Prepara las dependencias y los archivos de configuración. Usa el bloque de tu sistema:
+Para ejecutar el conjunto completo en contenedores, copia `.env.example` a `.env`, cambia los
+secretos de despliegue y arranca Compose:
+
+```sh
+docker compose up --build -d
+```
+
+La web estará disponible en `http://127.0.0.1:4321`. PostgreSQL, API y MCP no publican puertos; para
+usar la web y API como procesos locales de desarrollo, apunta `DATABASE_URL` a una instancia
+PostgreSQL accesible desde el host.
+
+Prepara las dependencias y los archivos de configuración para el desarrollo local. Usa el bloque
+de tu sistema:
 
 ```powershell
 pnpm.cmd install
@@ -53,10 +65,9 @@ pnpm install
 [ -f apps/web/.env ] || cp apps/web/.env.example apps/web/.env
 ```
 
-Inicia PostgreSQL y aplica las migraciones. En PowerShell:
+Con PostgreSQL disponible desde el host, aplica las migraciones. En PowerShell:
 
 ```powershell
-docker compose up -d postgres
 $env:DATABASE_URL = 'postgresql://nexo:nexo@127.0.0.1:5432/nexo'
 pnpm.cmd --filter @nexo/api db:migrate
 ```
@@ -64,7 +75,6 @@ pnpm.cmd --filter @nexo/api db:migrate
 En Linux/macOS:
 
 ```sh
-docker compose up -d postgres
 export DATABASE_URL='postgresql://nexo:nexo@127.0.0.1:5432/nexo'
 pnpm --filter @nexo/api db:migrate
 ```
@@ -99,12 +109,14 @@ Abre [http://localhost:4321](http://localhost:4321). La API escucha por defecto 
 
 ## Configuración
 
-Docker Compose lee la configuración de PostgreSQL desde `.env`. La API necesita `DATABASE_URL` en el entorno de su proceso; el ejemplo de arranque de arriba la define en la terminal de la API. La configuración de la web vive en `apps/web/.env`:
+Docker Compose lee las credenciales de PostgreSQL desde `.env` y construye las URLs internas con los nombres `postgres` y `api`. En desarrollo local, la API necesita `DATABASE_URL` en el entorno de su proceso y la web usa `apps/web/.env`:
 
 - `API_BASE_URL`: URL de la API usada por Astro en el servidor. Por defecto, `http://127.0.0.1:3000`.
 - `NEXO_TIME_ZONE`: zona horaria usada por las vistas Inicio y Hoy. Por defecto, `Europe/Madrid`.
 - `WEB_ALLOWED_HOSTNAME`: nombre de host adicional permitido al compilar la web; es opcional y útil al servirla fuera de `localhost`.
 - `GITHUB_TOKEN_ENCRYPTION_KEY`: secreto privado requerido por la API para cifrar el token de GitHub que se configura desde Ajustes.
+
+La guía de contenedores, migraciones, comprobaciones de salud y puertos está en [infra/README.md](C:/Users/eriks/Documents/GitHub/Nexo/infra/README.md).
 
 En **Ajustes → GitHub**, guarda un token de acceso personal con permisos de solo lectura para repositorios. Nexo lo cifra en PostgreSQL. Después puedes elegir un repositorio para importarlo desde la vista Proyectos, o vincularlo desde los detalles de un proyecto existente; ahí aparecerán sus últimos commits y podrás añadir tareas al proyecto. Define `GITHUB_TOKEN_ENCRYPTION_KEY` en el entorno del proceso de la API antes de guardar el token y conserva el mismo valor al reiniciar o desplegar la API.
 
@@ -174,7 +186,7 @@ Para Claude Code, usa `claude mcp add --transport http --scope user nexo https:/
 
 ## Base de datos
 
-`docker compose up -d postgres` crea PostgreSQL 16 y conserva sus datos en el volumen `postgres_data`. El puerto solo se publica en `127.0.0.1` por defecto; configura `POSTGRES_BIND_ADDRESS` únicamente si necesitas que otro equipo pueda acceder directamente. Para detenerlo sin eliminar los datos:
+`docker compose up --build -d` crea PostgreSQL 16 y conserva sus datos en el volumen `postgres_data`, ejecuta las migraciones pendientes e inicia todos los servicios. Solo la web publica un puerto local para que Tailscale Serve pueda usarla; PostgreSQL, API y MCP no publican sus puertos. Para detener los servicios sin eliminar los datos:
 
 ```sh
 docker compose down

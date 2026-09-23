@@ -6,15 +6,98 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-nexo}
       POSTGRES_USER: ${POSTGRES_USER:-nexo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexo}
-    ports:
-      - '${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-nexo} -d ${POSTGRES_DB:-nexo}']
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
       timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PACKAGE: '@nexo/api'
+    command: ['pnpm', '--filter', '@nexo/api', 'db:migrate']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nexo}:${POSTGRES_PASSWORD:-nexo}@postgres:5432/${POSTGRES_DB:-nexo}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PACKAGE: '@nexo/api'
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nexo}:${POSTGRES_PASSWORD:-nexo}@postgres:5432/${POSTGRES_DB:-nexo}
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
+      GITHUB_TOKEN_ENCRYPTION_KEY: ${GITHUB_TOKEN_ENCRYPTION_KEY:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
       retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PACKAGE: '@nexo/web'
+        WEB_ALLOWED_HOSTNAME: ${WEB_ALLOWED_HOSTNAME:-}
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4321
+      API_BASE_URL: http://api:3000
+      NEXO_TIME_ZONE: ${NEXO_TIME_ZONE:-Europe/Madrid}
+    ports:
+      - '${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-4321}:4321'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:4321/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PACKAGE: '@nexo/mcp'
+    restart: unless-stopped
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 3100
+      NEXO_API_BASE_URL: http://api:3000
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3100/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_data:

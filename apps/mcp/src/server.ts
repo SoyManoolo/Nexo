@@ -7,6 +7,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod';
 
 const MCP_PATH = '/mcp';
+const HEALTH_PATH = '/health';
 
 export function createNexoMcpServer(
   api = new NexoApiClient(process.env.NEXO_API_BASE_URL ?? 'http://127.0.0.1:3000'),
@@ -136,10 +137,22 @@ export function startMcpServer(
   const host = options.host ?? process.env.MCP_HOST ?? '127.0.0.1';
   const port = options.port ?? Number.parseInt(process.env.MCP_PORT ?? '3100', 10);
   const authToken = options.authToken ?? process.env.MCP_AUTH_TOKEN;
+  const apiBaseUrl = process.env.NEXO_API_BASE_URL ?? 'http://127.0.0.1:3000';
   const sessions = new Map<string, StreamableHTTPServerTransport>();
 
   const httpServer = createServer(async (request, response) => {
     const requestUrl = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
+    if (requestUrl.pathname === HEALTH_PATH) {
+      try {
+        const apiHealth = await fetch(new URL('/health', apiBaseUrl));
+        if (!apiHealth.ok) throw new Error('API is unavailable');
+        sendJson(response, 200, { status: 'ok' });
+      } catch {
+        sendJson(response, 503, { status: 'unavailable' });
+      }
+      return;
+    }
+
     if (requestUrl.pathname !== MCP_PATH) {
       sendJson(response, 404, { error: 'not_found', message: 'Use the /mcp endpoint.' });
       return;
