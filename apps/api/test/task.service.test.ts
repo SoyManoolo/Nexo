@@ -39,7 +39,7 @@ function task(id: string, input: Partial<Task> = {}): Task {
     title: 'Existing task',
     notes: null,
     projectId: null,
-    status: 'inbox',
+    status: 'pending',
     priority: 'medium',
     scheduledFor: null,
     dueAt: null,
@@ -73,7 +73,7 @@ class InMemoryTaskRepository extends TaskRepository {
       ...input,
       notes: input.notes ?? null,
       projectId: input.projectId ?? null,
-      status: input.status ?? 'inbox',
+      status: input.status ?? 'pending',
       priority: input.priority ?? 'medium',
       scheduledFor: input.scheduledFor ?? null,
       dueAt: input.dueAt ?? null,
@@ -122,7 +122,7 @@ test('TaskService creates inbox and project tasks', async () => {
   const inboxTask = await service.create({ title: 'Capture task' });
   const projectTask = await service.create({ title: 'Plan release', projectId: ACTIVE_PROJECT_ID });
 
-  assert.equal(inboxTask.status, 'inbox');
+  assert.equal(inboxTask.status, 'pending');
   assert.equal(inboxTask.projectId, null);
   assert.equal(projectTask.projectId, ACTIVE_PROJECT_ID);
 });
@@ -143,11 +143,11 @@ test('TaskService rejects missing and archived projects', async () => {
 
 test('TaskService filters by status, project and priority', async () => {
   const { service } = createService();
-  await service.create({ title: 'High next', projectId: ACTIVE_PROJECT_ID, status: 'next', priority: 'high' });
+  await service.create({ title: 'High next', projectId: ACTIVE_PROJECT_ID, status: 'in_review', priority: 'high' });
   await service.create({ title: 'Low inbox', priority: 'low' });
-  await service.create({ title: 'High other', status: 'next', priority: 'high' });
+  await service.create({ title: 'High other', status: 'in_review', priority: 'high' });
 
-  const filtered = await service.list({ projectId: ACTIVE_PROJECT_ID, status: 'next', priority: 'high' });
+  const filtered = await service.list({ projectId: ACTIVE_PROJECT_ID, status: 'in_review', priority: 'high' });
   assert.deepEqual(filtered.map(({ title }) => title), ['High next']);
 });
 
@@ -160,7 +160,7 @@ test('TaskService completes, reopens, blocks and moves tasks to inbox', async ()
   assert.ok(completed.completedAt);
 
   const reopened = await service.reopen(created.id);
-  assert.equal(reopened.status, 'next');
+  assert.equal(reopened.status, 'in_review');
   assert.equal(reopened.completedAt, null);
 
   const blocked = await service.update(created.id, {

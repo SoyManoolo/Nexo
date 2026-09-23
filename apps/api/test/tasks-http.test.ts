@@ -32,7 +32,7 @@ function task(id: string, input: Partial<Task> = {}): Task {
     title: 'Task',
     notes: null,
     projectId: null,
-    status: 'inbox',
+    status: 'pending',
     priority: 'medium',
     scheduledFor: null,
     dueAt: null,
@@ -63,7 +63,7 @@ class TestTaskRepository extends TaskRepository {
       {
       ...input,
       projectId: input.projectId ?? null,
-      status: input.status ?? 'inbox',
+      status: input.status ?? 'pending',
       priority: input.priority ?? 'medium',
       notes: input.notes ?? null,
       scheduledFor: input.scheduledFor ?? null,
@@ -144,11 +144,11 @@ test('GET /tasks filters by status, project and priority', async () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
-  await create({ title: 'Matching', projectId: PROJECT_ID, status: 'next', priority: 'high' });
-  await create({ title: 'Different status', projectId: PROJECT_ID, status: 'inbox', priority: 'high' });
-  await create({ title: 'Different project', status: 'next', priority: 'high' });
+  await create({ title: 'Matching', projectId: PROJECT_ID, status: 'in_review', priority: 'high' });
+  await create({ title: 'Different status', projectId: PROJECT_ID, status: 'pending', priority: 'high' });
+  await create({ title: 'Different project', status: 'in_review', priority: 'high' });
 
-  const response = await app.request(`/tasks?projectId=${PROJECT_ID}&status=next&priority=high`);
+  const response = await app.request(`/tasks?projectId=${PROJECT_ID}&status=in_review&priority=high`);
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json()).map((item: Task) => item.title), ['Matching']);
 });
@@ -166,7 +166,7 @@ test('Task actions complete, reopen, block and move a task to inbox', async () =
   assert.equal(complete.status, 200);
   assert.equal((await complete.json()).status, 'done');
   const reopen = await app.request(`/tasks/${id}/reopen`, { method: 'POST' });
-  assert.equal((await reopen.json()).status, 'next');
+  assert.equal((await reopen.json()).status, 'in_review');
   const block = await app.request(`/tasks/${id}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },

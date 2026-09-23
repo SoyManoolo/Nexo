@@ -54,7 +54,7 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
       name: 'get_project',
       arguments: { id: '550e8400-e29b-41d4-a716-446655440002' },
     });
-    await client.callTool({ name: 'list_tasks', arguments: { priority: 'high', status: 'next' } });
+    await client.callTool({ name: 'list_tasks', arguments: { priority: 'high', status: 'in_review' } });
     await client.callTool({ name: 'get_task', arguments: { id: taskId } });
 
     const created = await client.callTool({
@@ -73,16 +73,16 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
 
     await client.callTool({
       name: 'update_task',
-      arguments: { id: taskId, status: 'next' },
+      arguments: { id: taskId, status: 'in_review' },
     });
 
     assert.deepEqual(calls, [
       { name: 'listProjects', arguments: { status: 'active' } },
       { name: 'getProject', arguments: { id: '550e8400-e29b-41d4-a716-446655440002' } },
-      { name: 'listTasks', arguments: { priority: 'high', status: 'next' } },
+      { name: 'listTasks', arguments: { priority: 'high', status: 'in_review' } },
       { name: 'getTask', arguments: { id: taskId } },
       { name: 'createTask', arguments: { title: 'Preparar demo', priority: 'high' } },
-      { name: 'updateTask', arguments: { id: taskId, status: 'next' } },
+      { name: 'updateTask', arguments: { id: taskId, status: 'in_review' } },
     ]);
   } finally {
     await client.close();

@@ -39,7 +39,7 @@ export function createNexoMcpServer(
         'Lista tareas de Nexo. Combina filtros por proyecto, estado, prioridad y fechas.',
       inputSchema: {
         projectId: z.string().uuid().optional(),
-        status: z.enum(['inbox', 'next', 'in_progress', 'blocked', 'done']).optional(),
+        status: z.enum(['pending', 'in_progress', 'in_review', 'done', 'blocked']).optional(),
         priority: z.enum(['low', 'medium', 'high']).optional(),
         scheduledFor: z.string().date().optional(),
         dueAt: z.string().datetime().optional(),
@@ -60,13 +60,13 @@ export function createNexoMcpServer(
   server.registerTool(
     'create_task',
     {
-      description: 'Crea una tarea en Nexo. Sin estado explícito, se crea en el Inbox.',
+      description: 'Crea una tarea en Nexo. Sin estado explícito, se crea como Pendiente.',
       inputSchema: {
         title: z.string().trim().min(1).max(200),
         projectId: z.string().uuid().nullable().optional(),
         priority: z.enum(['low', 'medium', 'high']).optional(),
         pinned: z.boolean().optional(),
-        status: z.enum(['inbox', 'next', 'in_progress', 'blocked', 'done']).optional(),
+        status: z.enum(['pending', 'in_progress', 'in_review', 'done', 'blocked']).optional(),
         scheduledFor: z.string().date().nullable().optional(),
         dueAt: z.string().datetime().nullable().optional(),
         startedAt: z.string().datetime().nullable().optional(),
@@ -88,7 +88,7 @@ export function createNexoMcpServer(
         projectId: z.string().uuid().nullable().optional(),
         priority: z.enum(['low', 'medium', 'high']).optional(),
         pinned: z.boolean().optional(),
-        status: z.enum(['inbox', 'next', 'in_progress', 'blocked', 'done']).optional(),
+        status: z.enum(['pending', 'in_progress', 'in_review', 'done', 'blocked']).optional(),
         scheduledFor: z.string().date().nullable().optional(),
         dueAt: z.string().datetime().nullable().optional(),
         startedAt: z.string().datetime().nullable().optional(),

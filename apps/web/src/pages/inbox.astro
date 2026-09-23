@@ -4,7 +4,7 @@ import { createApiClient } from '../lib/api';
 import { formError } from '../lib/form-error';
 import { formValue } from '../lib/form-value';
 import { isSameOrigin } from '../lib/security';
-import type { Project, Task } from '@nexo/contracts';
+import { TaskStatusLabels, type Project, type Task } from '@nexo/contracts';
 
 let tasks: Task[] = [];
 let projects: Project[] = [];
@@ -16,11 +16,11 @@ const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
   : undefined;
 const taskView = Astro.url.searchParams.get('view') === 'list' ? 'list' : 'board';
 const taskStatuses: Array<{ value: Task['status']; label: string }> = [
-  { value: 'inbox', label: 'Inbox' },
-  { value: 'next', label: 'Siguiente' },
-  { value: 'in_progress', label: 'En curso' },
-  { value: 'blocked', label: 'Bloqueada' },
+  { value: 'pending', label: 'Pendiente' },
+  { value: 'in_progress', label: 'En progreso' },
+  { value: 'in_review', label: 'En revisión' },
   { value: 'done', label: 'Completada' },
+  { value: 'blocked', label: 'Bloqueada' },
 ];
 
 function inboxHref(view: 'board' | 'list'): string {
@@ -128,7 +128,7 @@ try {
             <input type="hidden" name="taskId" value={task.id} />
             <button class="task-action" type="submit" name="intent" value={task.status === 'done' ? 'reopen' : 'complete'} aria-label={task.status === 'done' ? `Reabrir ${task.title}` : `Completar ${task.title}`} title={task.status === 'done' ? 'Reabrir' : 'Completar'}>{task.status === 'done' ? '↶' : '✓'}</button>
           </form>
-          <a href={`/tasks/${task.id}`}><span><strong>{task.title}</strong>{task.notes && <small>{task.notes}</small>}</span><small>{task.status.replace('_', ' ')} · {task.priority}</small></a>
+          <a href={`/tasks/${task.id}`}><span><strong>{task.title}</strong>{task.notes && <small>{task.notes}</small>}</span><small>{TaskStatusLabels[task.status]} · {task.priority}</small></a>
         </li>
       ))}
     </ul>}

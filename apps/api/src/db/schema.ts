@@ -15,8 +15,8 @@ import {
 
 export const projectStatus = pgEnum('project_status', ['active', 'archived']);
 export const taskStatus = pgEnum('task_status', [
-  'inbox',
-  'next',
+  'pending',
+  'in_review',
   'in_progress',
   'blocked',
   'done',
@@ -67,7 +67,7 @@ export const tasks = pgTable(
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
     title: varchar('title', { length: 200 }).notNull(),
     notes: text('notes'),
-    status: taskStatus('status').notNull().default('inbox'),
+    status: taskStatus('status').notNull().default('pending'),
     priority: taskPriority('priority').notNull().default('medium'),
     pinned: boolean('pinned').notNull().default(false),
     scheduledFor: date('scheduled_for'),

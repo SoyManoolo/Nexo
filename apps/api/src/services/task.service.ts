@@ -75,7 +75,7 @@ export class TaskService {
   ) {}
 
   async create(input: CreateTaskInput): Promise<Task> {
-    const status = input.status ?? 'inbox';
+    const status = input.status ?? 'pending';
     const projectId = await this.validateProject(input.projectId);
     const blockedReason = normalizeBlockedReason(input.blockedReason);
 
@@ -178,7 +178,7 @@ export class TaskService {
   }
 
   reopen(id: string): Promise<Task> {
-    return this.update(id, { status: 'next' });
+    return this.update(id, { status: 'in_review' });
   }
 
   moveToInbox(id: string): Promise<Task> {

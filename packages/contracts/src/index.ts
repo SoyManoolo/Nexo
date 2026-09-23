@@ -15,15 +15,23 @@ export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
 /**
  * Estados de trabajo de una tarea:
- * - `inbox`: tarea capturada, aún sin decidir.
- * - `next`: siguiente acción disponible.
+ * - `pending`: tarea pendiente de empezar.
  * - `in_progress`: tarea que estás ejecutando.
+ * - `in_review`: tarea pendiente de revisión.
  * - `blocked`: necesita algo externo y exige `blockedReason`.
  * - `done`: completada y exige `completedAt`.
  */
-export const TaskStatusSchema = z.enum(['inbox', 'next', 'in_progress', 'blocked', 'done']);
+export const TaskStatusSchema = z.enum(['pending', 'in_progress', 'in_review', 'done', 'blocked']);
 
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+
+export const TaskStatusLabels: Record<TaskStatus, string> = {
+  pending: 'Pendiente',
+  in_progress: 'En progreso',
+  in_review: 'En revisión',
+  done: 'Completada',
+  blocked: 'Bloqueada',
+};
 
 /** Prioridad explícita asignada a una tarea. */
 export const TaskPrioritySchema = z.enum(['low', 'medium', 'high']);
@@ -150,7 +158,7 @@ export const CreateTaskInputSchema = z
   })
   .strict()
   .superRefine((input, context) => {
-    validateTaskState({ ...input, status: input.status ?? 'inbox' }, context);
+    validateTaskState({ ...input, status: input.status ?? 'pending' }, context);
   });
 
 export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>;

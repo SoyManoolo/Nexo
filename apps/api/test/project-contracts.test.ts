@@ -98,7 +98,7 @@ test('CreateTaskInputSchema enforces blocked and done state requirements', () =>
   assert.throws(() => CreateTaskInputSchema.parse({ title: 'Blocked', status: 'blocked' }));
   assert.throws(() => CreateTaskInputSchema.parse({ title: 'Done', status: 'done' }));
   assert.throws(() =>
-    CreateTaskInputSchema.parse({ title: 'Active', status: 'next', completedAt: '2026-09-22T10:00:00.000Z' }),
+    CreateTaskInputSchema.parse({ title: 'Active', status: 'in_review', completedAt: '2026-09-22T10:00:00.000Z' }),
   );
   assert.deepEqual(
     CreateTaskInputSchema.parse({
@@ -135,14 +135,14 @@ test('TaskIdParamsSchema accepts UUIDs and ListTasksQuerySchema validates filter
   assert.deepEqual(
     ListTasksQuerySchema.parse({
       projectId: '550e8400-e29b-41d4-a716-446655440000',
-      status: 'next',
+      status: 'in_review',
       priority: 'medium',
       scheduledFor: '2026-09-22',
       dueAt: '2026-09-23T10:00:00.000Z',
     }),
     {
       projectId: '550e8400-e29b-41d4-a716-446655440000',
-      status: 'next',
+      status: 'in_review',
       priority: 'medium',
       scheduledFor: '2026-09-22',
       dueAt: '2026-09-23T10:00:00.000Z',

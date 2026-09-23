@@ -146,7 +146,7 @@ Los proyectos inexistentes devuelven `404` y los archivados no aceptan tareas nu
 
 ### `POST /tasks`
 
-Crea una tarea. `status` por defecto es `inbox` y `priority` por defecto es `medium`.
+Crea una tarea. `status` por defecto es `pending` y `priority` por defecto es `medium`.
 
 Request para el inbox:
 
@@ -163,7 +163,7 @@ Request dentro de un proyecto:
 POST /tasks
 Content-Type: application/json
 
-{"title":"Preparar entrega","projectId":"550e8400-e29b-41d4-a716-446655440002","status":"next"}
+{"title":"Preparar entrega","projectId":"550e8400-e29b-41d4-a716-446655440002","status":"in_review"}
 ```
 
 Response `201`:
@@ -174,7 +174,7 @@ Response `201`:
   "title": "Procesar notas",
   "notes": null,
   "projectId": null,
-  "status": "inbox",
+  "status": "pending",
   "priority": "high",
   "scheduledFor": null,
   "dueAt": null,
@@ -186,8 +186,7 @@ Response `201`:
 }
 ```
 
-Una tarea `blocked` requiere `blockedReason`. Una tarea `done` requiere `completedAt` cuando se
-crea directamente.
+Los estados posibles son `pending` (Pendiente), `in_progress` (En progreso), `in_review` (En revisión), `done` (Completada) y `blocked` (Bloqueada). Una tarea `blocked` requiere `blockedReason`. Una tarea `done` requiere `completedAt` cuando se crea directamente.
 
 ### `GET /tasks`
 
@@ -197,7 +196,7 @@ Lista tareas. Se pueden combinar los filtros `projectId`, `status` y `priority`;
 Request:
 
 ```http
-GET /tasks?projectId=550e8400-e29b-41d4-a716-446655440002&status=next&priority=high
+GET /tasks?projectId=550e8400-e29b-41d4-a716-446655440002&status=in_review&priority=high
 ```
 
 Response `200`:
@@ -209,7 +208,7 @@ Response `200`:
     "title": "Preparar entrega",
     "notes": null,
     "projectId": "550e8400-e29b-41d4-a716-446655440002",
-    "status": "next",
+    "status": "in_review",
     "priority": "high",
     "scheduledFor": null,
     "dueAt": null,
@@ -260,8 +259,8 @@ Response `200`:
 ### Acciones de tareas
 
 `POST /tasks/:id/complete` marca una tarea como `done`, `POST /tasks/:id/reopen` la devuelve a
-`next`, y `POST /tasks/:id/move-to-inbox` elimina su proyecto y la devuelve al inbox. Todas
-devuelven la tarea actualizada con `200`.
+`in_review`, y `POST /tasks/:id/move-to-inbox` elimina su proyecto y la devuelve al inbox con estado
+`pending`. Todas devuelven la tarea actualizada con `200`.
 
 ```http
 POST /tasks/550e8400-e29b-41d4-a716-446655440003/complete

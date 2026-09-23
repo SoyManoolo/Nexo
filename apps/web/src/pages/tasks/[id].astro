@@ -5,7 +5,7 @@ import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
 import { NexoApiNotFoundError } from '@nexo/api-client';
-import type { Project, Task, TaskStatus } from '@nexo/contracts';
+import { TaskStatusLabels, type Project, type Task, type TaskStatus } from '@nexo/contracts';
 
 const id = Astro.params.id ?? '';
 let task: Task | null = null;
@@ -33,7 +33,7 @@ if (Astro.request.method === 'POST') {
       await api.updateTask(id, { pinned: intent === 'pin' });
     } else if (intent === 'save') {
       const current = await api.getTask(id);
-      const status = String(form.get('status') ?? 'inbox') as TaskStatus;
+      const status = String(form.get('status') ?? 'pending') as TaskStatus;
       const dueAt = String(form.get('dueAt') ?? '');
       const dueAtIso = String(form.get('dueAtIso') ?? '');
       const startedAt = String(form.get('startedAt') ?? '');
@@ -100,7 +100,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
       <div class="notice"><h1>Tarea no encontrada</h1><p>Comprueba el enlace e inténtalo de nuevo.</p></div>
     ) : task ? (
       <>
-        <header class="page-header"><div><p class="eyebrow">{task.status.replace('_', ' ')}</p><h1>{task.title}</h1></div></header>
+        <header class="page-header"><div><p class="eyebrow">{TaskStatusLabels[task.status]}</p><h1>{task.title}</h1></div></header>
         {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
         <div class="task-layout">
           <section class="card">
@@ -118,11 +118,11 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               <div class="field-pair">
                 <label class="field">Estado
                   <select name="status" id="task-status">
-                    <option value="inbox" selected={formValue(submittedForm, 'status', task.status) === 'inbox'}>Inbox</option>
-                    <option value="next" selected={formValue(submittedForm, 'status', task.status) === 'next'}>Siguiente</option>
-                    <option value="in_progress" selected={formValue(submittedForm, 'status', task.status) === 'in_progress'}>En curso</option>
-                    <option value="blocked" selected={formValue(submittedForm, 'status', task.status) === 'blocked'}>Bloqueada</option>
+                    <option value="pending" selected={formValue(submittedForm, 'status', task.status) === 'pending'}>Pendiente</option>
+                    <option value="in_progress" selected={formValue(submittedForm, 'status', task.status) === 'in_progress'}>En progreso</option>
+                    <option value="in_review" selected={formValue(submittedForm, 'status', task.status) === 'in_review'}>En revisión</option>
                     <option value="done" selected={formValue(submittedForm, 'status', task.status) === 'done'}>Completada</option>
+                    <option value="blocked" selected={formValue(submittedForm, 'status', task.status) === 'blocked'}>Bloqueada</option>
                   </select>
                 </label>
                 <label class="field">Prioridad

@@ -8,7 +8,7 @@ La aplicación web y la API están implementadas y usan PostgreSQL. Actualmente 
 
 - crear, editar, archivar y eliminar proyectos;
 - capturar tareas en el Inbox o asignarlas a un proyecto;
-- organizar tareas por estado (`inbox`, `next`, `in_progress`, `blocked` y `done`), prioridad, fechas y anclado en inicio;
+- organizar tareas por estado (Pendiente, En progreso, En revisión, Completada y Bloqueada), prioridad, fechas y anclado en inicio;
 - completar, reabrir y devolver tareas al Inbox;
 - consultar Inicio (calendario mensual o semanal, tareas ancladas y recientes), Inbox, Hoy y Proyectos;
 - importar repositorios de GitHub como proyectos, vincularlos a proyectos existentes y consultar sus commits recientes;

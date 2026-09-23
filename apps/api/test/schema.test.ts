@@ -35,8 +35,8 @@ test(
       { typname: 'task_priority', enumlabel: 'low' },
       { typname: 'task_priority', enumlabel: 'medium' },
       { typname: 'task_priority', enumlabel: 'high' },
-      { typname: 'task_status', enumlabel: 'inbox' },
-      { typname: 'task_status', enumlabel: 'next' },
+      { typname: 'task_status', enumlabel: 'pending' },
+      { typname: 'task_status', enumlabel: 'in_review' },
       { typname: 'task_status', enumlabel: 'in_progress' },
       { typname: 'task_status', enumlabel: 'blocked' },
       { typname: 'task_status', enumlabel: 'done' },
@@ -57,14 +57,14 @@ test(
       );
       assert.deepEqual(task.rows[0], {
         project_id: project.rows[0].id,
-        status: 'inbox',
+        status: 'pending',
         priority: 'medium',
         pinned: false,
       });
 
       await assert.rejects(
         pool.query(
-          `INSERT INTO tasks (title, status, blocked_reason) VALUES ('invalid', 'inbox', 'reason')`,
+          `INSERT INTO tasks (title, status, blocked_reason) VALUES ('invalid', 'pending', 'reason')`,
         ),
       );
     } finally {

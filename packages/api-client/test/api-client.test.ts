@@ -5,7 +5,7 @@ import { NexoApiClient, NexoApiNotFoundError, NexoApiResponseValidationError, Ne
 const ID = '550e8400-e29b-41d4-a716-446655440001';
 const NOW = '2026-01-01T00:00:00.000Z';
 const project = () => ({ id: ID, name: 'Project', description: null, color: null, status: 'active', archivedAt: null, createdAt: NOW, updatedAt: NOW });
-const task = () => ({ id: ID, title: 'Task', notes: null, projectId: null, status: 'inbox', priority: 'medium', pinned: false, scheduledFor: null, dueAt: null, startedAt: null, completedAt: null, blockedReason: null, createdAt: NOW, updatedAt: NOW });
+const task = () => ({ id: ID, title: 'Task', notes: null, projectId: null, status: 'pending', priority: 'medium', pinned: false, scheduledFor: null, dueAt: null, startedAt: null, completedAt: null, blockedReason: null, createdAt: NOW, updatedAt: NOW });
 
 function clientWith(response: Response, inspect?: (input: RequestInfo | URL, init?: RequestInit) => void) {
   return new NexoApiClient({ baseUrl: 'https://api.example.test/v1/', fetch: async (input, init) => { inspect?.(input, init); return response; } });
@@ -24,8 +24,8 @@ test('serializa cuerpos de proyecto y conserva las cabeceras JSON', async () => 
 test('serializa filtros de tareas y valida listas recibidas', async () => {
   let url = '';
   const client = clientWith(new Response(JSON.stringify([task()])), (input) => { url = input.toString(); });
-  assert.equal((await client.listTasks({ projectId: ID, status: 'next', priority: 'high', scheduledFor: '2026-01-02' }))[0]?.title, 'Task');
-  assert.equal(url, `https://api.example.test/tasks?projectId=${ID}&status=next&priority=high&scheduledFor=2026-01-02`);
+  assert.equal((await client.listTasks({ projectId: ID, status: 'in_review', priority: 'high', scheduledFor: '2026-01-02' }))[0]?.title, 'Task');
+  assert.equal(url, `https://api.example.test/tasks?projectId=${ID}&status=in_review&priority=high&scheduledFor=2026-01-02`);
 });
 
 test('expone todas las rutas de proyectos y tareas', async () => {

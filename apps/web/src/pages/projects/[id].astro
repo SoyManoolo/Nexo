@@ -5,7 +5,7 @@ import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
 import { NexoApiNotFoundError } from '@nexo/api-client';
-import type { Project, Task } from '@nexo/contracts';
+import { TaskStatusLabels, type Project, type Task } from '@nexo/contracts';
 
 const id = Astro.params.id ?? '';
 let project: Project | null = null;
@@ -17,7 +17,7 @@ let submittedForm: FormData | null = null;
 let notFound = false;
 const statusParam = Astro.url.searchParams.get('status');
 const priorityParam = Astro.url.searchParams.get('priority');
-const statusFilter = ['inbox', 'next', 'in_progress', 'blocked', 'done'].includes(statusParam ?? '')
+const statusFilter = ['pending', 'in_progress', 'in_review', 'done', 'blocked'].includes(statusParam ?? '')
   ? statusParam as Task['status']
   : undefined;
 const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
@@ -25,11 +25,11 @@ const priorityFilter = ['low', 'medium', 'high'].includes(priorityParam ?? '')
   : undefined;
 const taskView = Astro.url.searchParams.get('view') === 'list' ? 'list' : 'board';
 const taskStatuses: Array<{ value: Task['status']; label: string }> = [
-  { value: 'inbox', label: 'Inbox' },
-  { value: 'next', label: 'Siguiente' },
-  { value: 'in_progress', label: 'En curso' },
-  { value: 'blocked', label: 'Bloqueada' },
+  { value: 'pending', label: 'Pendiente' },
+  { value: 'in_progress', label: 'En progreso' },
+  { value: 'in_review', label: 'En revisión' },
   { value: 'done', label: 'Completada' },
+  { value: 'blocked', label: 'Bloqueada' },
 ];
 
 function taskViewHref(view: 'board' | 'list'): string {
@@ -67,7 +67,7 @@ if (Astro.request.method === 'POST') {
       const taskId = String(form.get('taskId') ?? '');
       const targetStatus = String(form.get('targetStatus') ?? '');
       const blockedReason = String(form.get('blockedReason') ?? '').trim();
-      if (!['inbox', 'next', 'in_progress', 'blocked', 'done'].includes(targetStatus)) {
+      if (!['pending', 'in_progress', 'in_review', 'done', 'blocked'].includes(targetStatus)) {
         throw new Error('Estado de destino no válido');
       }
       const task = await api.getTask(taskId);
@@ -166,11 +166,11 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               <label class="field">Estado
                 <select name="status">
                   <option value="">Todos</option>
-                  <option value="inbox" selected={statusFilter === 'inbox'}>Inbox</option>
-                  <option value="next" selected={statusFilter === 'next'}>Siguiente</option>
-                  <option value="in_progress" selected={statusFilter === 'in_progress'}>En curso</option>
-                  <option value="blocked" selected={statusFilter === 'blocked'}>Bloqueada</option>
+                  <option value="pending" selected={statusFilter === 'pending'}>Pendiente</option>
+                  <option value="in_progress" selected={statusFilter === 'in_progress'}>En progreso</option>
+                  <option value="in_review" selected={statusFilter === 'in_review'}>En revisión</option>
                   <option value="done" selected={statusFilter === 'done'}>Completada</option>
+                  <option value="blocked" selected={statusFilter === 'blocked'}>Bloqueada</option>
                 </select>
               </label>
               <label class="field">Prioridad
@@ -187,7 +187,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
             ) : taskView === 'list' ? (
               <ul class="task-list">
                 {tasks.map((task) => (
-                  <li><a class="card task-link" href={`/tasks/${task.id}`}><span>{task.title}</span><small>{task.status.replace('_', ' ')} · {task.priority}</small></a></li>
+                  <li><a class="card task-link" href={`/tasks/${task.id}`}><span>{task.title}</span><small>{TaskStatusLabels[task.status]} · {task.priority}</small></a></li>
                 ))}
               </ul>
             ) : (

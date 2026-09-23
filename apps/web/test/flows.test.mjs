@@ -13,7 +13,7 @@ const makeProject = (body) => ({
   status: 'active', archivedAt: null, createdAt: now, updatedAt: now,
 });
 const makeTask = (body) => ({
-  id: randomUUID(), title: body.title, notes: body.notes ?? null, projectId: body.projectId ?? null, status: 'inbox',
+  id: randomUUID(), title: body.title, notes: body.notes ?? null, projectId: body.projectId ?? null, status: 'pending',
   priority: body.priority ?? 'medium', pinned: false, scheduledFor: body.scheduledFor ?? null, dueAt: body.dueAt ?? null, startedAt: null,
   completedAt: null, blockedReason: null, createdAt: now, updatedAt: now,
 });
@@ -63,7 +63,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
         value = tasks.find((item) => item.id === task[1]);
         if (value && req.method === 'PATCH') Object.assign(value, body);
         if (value && task[2] && req.method === 'POST') {
-          value.status = task[2] === '/complete' ? 'done' : 'inbox';
+          value.status = task[2] === '/complete' ? 'done' : 'pending';
           value.completedAt = task[2] === '/complete' ? now : null;
         }
       }
@@ -149,7 +149,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
   assert.match(await (await fetch(`${base}/inbox?status=done`)).text(), /Tarea capturada/);
   assert.equal((await submit('/inbox', { intent: 'reopen', taskId: tasks[0].id })).status, 303);
-  assert.equal(tasks[0].status, 'inbox');
+  assert.equal(tasks[0].status, 'pending');
   assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
 
   const archived = await submit(`/projects/${projects[0].id}`, { intent: 'archive' });
