@@ -231,9 +231,18 @@ export const GithubCommitSchema = z.object({
   committedAt: TimestampSchema,
 });
 
+export const GithubRepositorySchema = z.object({
+  fullName: z.string(),
+  htmlUrl: z.string().url(),
+  description: z.string().nullable(),
+  isPrivate: z.boolean(),
+  updatedAt: TimestampSchema,
+});
+
 export const GithubIntegrationStatusSchema = z.object({ connected: z.boolean() });
 
 export type GithubCommit = z.infer<typeof GithubCommitSchema>;
+export type GithubRepository = z.infer<typeof GithubRepositorySchema>;
 export type GithubIntegrationStatus = z.infer<typeof GithubIntegrationStatusSchema>;
 
 export type Project = z.infer<typeof ProjectSchema>;

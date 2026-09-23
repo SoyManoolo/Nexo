@@ -1,9 +1,9 @@
 import {
   CreateProjectInputSchema, CreateTaskInputSchema, HealthResponseSchema, ListProjectsQuerySchema,
-  GithubCommitSchema, GithubIntegrationStatusSchema, ImportGithubProjectInputSchema,
+  GithubCommitSchema, GithubIntegrationStatusSchema, GithubRepositorySchema, ImportGithubProjectInputSchema,
   ListTasksQuerySchema, ProjectSchema, TaskSchema, UpdateProjectInputSchema, UpdateTaskInputSchema,
   type CreateProjectInput, type CreateTaskInput, type HealthResponse, type ListProjectsQuery,
-  type GithubCommit, type GithubIntegrationStatus, type ImportGithubProjectInput,
+  type GithubCommit, type GithubIntegrationStatus, type GithubRepository, type ImportGithubProjectInput,
   type ListTasksQuery, type Project, type Task, type UpdateProjectInput, type UpdateTaskInput,
 } from '@nexo/contracts';
 import { z, type ZodType } from 'zod';
@@ -70,6 +70,7 @@ export class NexoApiClient {
   async deleteProject(id: string): Promise<void> { return this.requestEmpty(`/projects/${encodeURIComponent(id)}`, 'DELETE'); }
   async importGithubProject(input: ImportGithubProjectInput): Promise<Project> { return this.request('/projects/import-github', { method: 'POST', body: ImportGithubProjectInputSchema.parse(input) }, ProjectSchema); }
   async listGithubCommits(id: string): Promise<GithubCommit[]> { return this.request(`/projects/${encodeURIComponent(id)}/commits`, { method: 'GET' }, z.array(GithubCommitSchema)); }
+  async listGithubRepositories(): Promise<GithubRepository[]> { return this.request('/github/repositories', { method: 'GET' }, z.array(GithubRepositorySchema)); }
   async getGithubIntegrationStatus(): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'GET' }, GithubIntegrationStatusSchema); }
   async saveGithubToken(token: string): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'PUT', body: { token } }, GithubIntegrationStatusSchema); }
   async removeGithubToken(): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'DELETE' }, GithubIntegrationStatusSchema); }

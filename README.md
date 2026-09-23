@@ -106,7 +106,7 @@ Docker Compose lee la configuración de PostgreSQL desde `.env`. La API necesita
 - `WEB_ALLOWED_HOSTNAME`: nombre de host adicional permitido al compilar la web; es opcional y útil al servirla fuera de `localhost`.
 - `GITHUB_TOKEN_ENCRYPTION_KEY`: secreto privado requerido por la API para cifrar el token de GitHub que se configura desde Ajustes.
 
-En **Ajustes → GitHub**, guarda un token de acceso personal con permisos de solo lectura para repositorios. Nexo lo cifra en PostgreSQL. Después puedes importar un repositorio desde la vista Proyectos, o vincularlo desde los detalles de un proyecto existente; ahí aparecerán sus últimos commits y podrás añadir tareas al proyecto. Define `GITHUB_TOKEN_ENCRYPTION_KEY` en el entorno del proceso de la API antes de guardar el token y conserva el mismo valor al reiniciar o desplegar la API.
+En **Ajustes → GitHub**, guarda un token de acceso personal con permisos de solo lectura para repositorios. Nexo lo cifra en PostgreSQL. Después puedes elegir un repositorio para importarlo desde la vista Proyectos, o vincularlo desde los detalles de un proyecto existente; ahí aparecerán sus últimos commits y podrás añadir tareas al proyecto. Define `GITHUB_TOKEN_ENCRYPTION_KEY` en el entorno del proceso de la API antes de guardar el token y conserva el mismo valor al reiniciar o desplegar la API.
 
 Si PostgreSQL local usa otras credenciales o puerto, actualiza `DATABASE_URL` en las terminales donde ejecutas la migración y la API. En PowerShell, usa `pnpm.cmd` si la política de ejecución bloquea `pnpm.ps1`; en Linux/macOS usa `pnpm`. Cambiar `POSTGRES_PASSWORD` en `.env` no cambia la contraseña de un volumen PostgreSQL que ya se haya inicializado.
 

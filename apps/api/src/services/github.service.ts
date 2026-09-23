@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import type { GithubCommit } from '@nexo/contracts';
+import type { GithubCommit, GithubRepository } from '@nexo/contracts';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { integrationSettings } from '../db/schema.js';
@@ -102,5 +102,23 @@ export async function listGithubCommits(repository: string): Promise<GithubCommi
     url: item.html_url,
     author: item.author?.login ?? item.commit.author?.name ?? null,
     committedAt: new Date(item.commit.author?.date ?? Date.now()).toISOString(),
+  }));
+}
+
+export async function listGithubRepositories(): Promise<GithubRepository[]> {
+  const token = await getToken();
+  if (!token) throw new GithubIntegrationError('Conecta GitHub desde Ajustes antes de elegir un repositorio.', 400);
+  const repositories: Array<{ full_name: string; html_url: string; description: string | null; private: boolean; updated_at: string }> = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const batch = await request<typeof repositories>(`/user/repos?sort=updated&per_page=100&page=${page}&affiliation=owner%2Ccollaborator%2Corganization`);
+    repositories.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return repositories.map((repo) => ({
+    fullName: repo.full_name,
+    htmlUrl: repo.html_url,
+    description: repo.description,
+    isPrivate: repo.private,
+    updatedAt: new Date(repo.updated_at).toISOString(),
   }));
 }

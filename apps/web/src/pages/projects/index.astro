@@ -4,14 +4,17 @@ import { createApiClient } from '../../lib/api';
 import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
-import type { Project, Task } from '@nexo/contracts';
+import type { GithubRepository, Project, Task } from '@nexo/contracts';
 
 let projects: Project[] = [];
 let archived: Project[] = [];
 let tasks: Task[] = [];
+let githubRepositories: GithubRepository[] = [];
+let githubListError: string | null = null;
 let errorMessage: string | null = null;
 let submittedForm: FormData | null = null;
 const showArchived = Astro.url.searchParams.get('status') === 'archived';
+const showGithubImport = Astro.url.searchParams.get('import') === 'github';
 
 if (Astro.request.method === 'POST') {
   if (!isSameOrigin(Astro.request, Astro.url)) {
@@ -21,7 +24,8 @@ if (Astro.request.method === 'POST') {
   submittedForm = form;
   try {
     if (form.get('intent') === 'import-github') {
-      const project = await createApiClient().importGithubProject({ repositoryUrl: String(form.get('repositoryUrl') ?? '') });
+      const repository = String(form.get('repository') ?? '');
+      const project = await createApiClient().importGithubProject({ repositoryUrl: `https://github.com/${repository}` });
       return Astro.redirect(`/projects/${project.id}`, 303);
     }
     await createApiClient().createProject({
@@ -35,6 +39,14 @@ if (Astro.request.method === 'POST') {
     const failure = formError(error, 'No se pudo crear el proyecto. Revisa los datos e inténtalo de nuevo.');
     errorMessage = failure.message;
     Astro.response.status = failure.status;
+  }
+}
+
+if (showGithubImport) {
+  try { githubRepositories = await createApiClient().listGithubRepositories(); }
+  catch (error) {
+    console.error('No se pudieron cargar los repositorios de GitHub:', error);
+    githubListError = error instanceof Error ? error.message : 'No se pudieron cargar los repositorios. Revisa la conexión en Ajustes.';
   }
 }
 
@@ -69,7 +81,7 @@ for (const task of tasks) {
         <p class="page-intro">Todo lo que tienes entre manos, en un solo lugar.</p>
       </div>
       <button class="button" type="button" id="open-project-modal">Crear proyecto</button>
-      <button class="button secondary" type="button" id="open-github-modal">Importar desde GitHub</button>
+      <a class="button secondary" href="/projects?import=github">Importar desde GitHub</a>
     </header>
 
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/projects">Volver a intentar</a></div>}
@@ -105,13 +117,19 @@ for (const task of tasks) {
         <div class="modal-actions"><button class="button secondary" type="button" id="cancel-project-modal">Cancelar</button><button class="button" type="submit">Crear proyecto</button></div>
       </form>
     </dialog>
-    <dialog class="project-modal" id="github-modal" aria-labelledby="github-import-heading" open={submittedForm?.get('intent') === 'import-github'}>
+    <dialog class="project-modal" id="github-modal" aria-labelledby="github-import-heading" open={showGithubImport || submittedForm?.get('intent') === 'import-github'}>
       <form method="post" class="form-grid">
         <input type="hidden" name="intent" value="import-github" />
-        <div class="modal-header"><h2 id="github-import-heading">Importar repositorio</h2><button class="modal-close" type="button" id="close-github-modal" aria-label="Cerrar">×</button></div>
-        <p class="muted">Nexo creará un proyecto con el nombre y la descripción del repositorio.</p>
-        <label class="field">URL del repositorio <input name="repositoryUrl" type="url" required maxlength="500" placeholder="https://github.com/organizacion/repositorio" value={formValue(submittedForm, 'repositoryUrl')} /></label>
-        <div class="modal-actions"><button class="button secondary" type="button" id="cancel-github-modal">Cancelar</button><button class="button" type="submit">Importar proyecto</button></div>
+        <div class="modal-header"><h2 id="github-import-heading">Elige un repositorio</h2><a class="modal-close" href="/projects" aria-label="Cerrar">×</a></div>
+        <p class="muted">Selecciona un repositorio accesible por la conexión configurada en Ajustes.</p>
+        {githubListError ? <div class="notice error" role="alert"><p>{githubListError}</p><a href="/settings">Configurar GitHub en Ajustes</a></div> : githubRepositories.length === 0 ? <div class="notice"><p>No se encontraron repositorios accesibles.</p></div> : (
+          <label class="field">Repositorio
+            <select name="repository" required>
+              {githubRepositories.map((repository) => <option value={repository.fullName} selected={formValue(submittedForm, 'repository') === repository.fullName}>{repository.fullName}{repository.isPrivate ? ' · Privado' : ''}</option>)}
+            </select>
+          </label>
+        )}
+        <div class="modal-actions"><a class="button secondary" href="/projects">Cancelar</a><button class="button" type="submit" disabled={githubRepositories.length === 0}>Importar proyecto</button></div>
       </form>
     </dialog>
   </main>
@@ -122,16 +140,9 @@ for (const task of tasks) {
   const openProjectModal = document.querySelector<HTMLButtonElement>('#open-project-modal');
   const closeProjectModal = document.querySelector<HTMLButtonElement>('#close-project-modal');
   const cancelProjectModal = document.querySelector<HTMLButtonElement>('#cancel-project-modal');
-  const githubModal = document.querySelector<HTMLDialogElement>('#github-modal');
-  const openGithubModal = document.querySelector<HTMLButtonElement>('#open-github-modal');
-  const closeGithubModal = document.querySelector<HTMLButtonElement>('#close-github-modal');
-  const cancelGithubModal = document.querySelector<HTMLButtonElement>('#cancel-github-modal');
   openProjectModal?.addEventListener('click', () => projectModal?.showModal());
   closeProjectModal?.addEventListener('click', () => projectModal?.close());
   cancelProjectModal?.addEventListener('click', () => projectModal?.close());
-  openGithubModal?.addEventListener('click', () => githubModal?.showModal());
-  closeGithubModal?.addEventListener('click', () => githubModal?.close());
-  cancelGithubModal?.addEventListener('click', () => githubModal?.close());
 </script>
 
 <style>
