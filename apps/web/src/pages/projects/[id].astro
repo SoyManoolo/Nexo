@@ -308,7 +308,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   const commitItems = document.querySelectorAll<HTMLElement>('[data-commit-item]');
   commitToggle?.addEventListener('click', () => {
     const expanded = commitToggle.getAttribute('aria-expanded') === 'true';
-    commitItems.forEach((item, index) => { item.hidden = !expanded && index >= 5; });
+    commitItems.forEach((item, index) => { item.hidden = expanded && index >= 5; });
     commitToggle.setAttribute('aria-expanded', String(!expanded));
     commitToggle.textContent = expanded ? 'Ver más commits' : 'Ver menos commits';
   });
