@@ -160,14 +160,12 @@ const overdueTasks = allTasks.filter((task) =>
 const progressPercent = allTasks.length ? Math.round((completedTasks / allTasks.length) * 100) : 0;
 const nextTask = allTasks.find((task) => task.status !== 'done' && task.status !== 'blocked') ?? null;
 
-type TimelineItem =
-  | { kind: 'activity'; id: string; at: string; activity: ProjectActivity }
-  | { kind: 'commit'; id: string; at: string; commit: GithubCommit };
-
-const timeline: TimelineItem[] = [
-  ...activities.map((activity): TimelineItem => ({ kind: 'activity', id: activity.id, at: activity.createdAt, activity })),
-  ...commits.map((commit): TimelineItem => ({ kind: 'commit', id: commit.sha, at: commit.committedAt, commit })),
-].sort((left, right) => Date.parse(right.at) - Date.parse(left.at)).slice(0, 20);
+const recentActivities = [...activities]
+  .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+  .slice(0, 5);
+const recentCommits = [...commits]
+  .sort((left, right) => Date.parse(right.committedAt) - Date.parse(left.committedAt))
+  .slice(0, 5);
 
 function activityLabel(activity: ProjectActivity): string {
   const title = activity.taskTitle ? `«${activity.taskTitle}»` : 'la tarea';
@@ -302,25 +300,39 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               </>
             )}
         </section>
-        <section class="activity-panel card" aria-labelledby="activity-heading">
-          <div class="activity-heading"><div><p class="eyebrow">Seguimiento</p><h2 id="activity-heading">Actividad reciente</h2></div>
-            {project.githubRepository && <a class="button secondary" href={`https://github.com/${project.githubRepository}`} target="_blank" rel="noreferrer">{project.githubRepository} ↗</a>}
-          </div>
-          {activityError && <p class="github-error" role="alert">{activityError}</p>}
-          {githubError && <p class="github-error" role="alert">{githubError} <a href="/settings">Revisar GitHub en Ajustes</a></p>}
-          {!activityError && !githubError && timeline.length === 0 ? <p class="muted">Todavía no hay actividad en este proyecto.</p> : (
-            <ol class="activity-list">
-              {timeline.map((item) => (
-                <li>
-                  <time datetime={item.at}>{new Date(item.at).toLocaleString('es-ES')}</time>
-                  {item.kind === 'commit' ? <div><strong>Commit: <a href={item.commit.url} target="_blank" rel="noreferrer">{item.commit.message}</a></strong><small>{item.commit.author ?? 'Autor desconocido'} · {item.commit.sha.slice(0, 7)}</small></div> : (
-                    <div><strong>{activityLabel(item.activity)}</strong>{item.activity.fromStatus && item.activity.toStatus && <small>{TaskStatusLabels[item.activity.fromStatus]} → {TaskStatusLabels[item.activity.toStatus]}</small>}</div>
-                  )}
-                </li>
-              ))}
-            </ol>
-          )}
-          {!project.githubRepository && <p class="muted activity-hint">Vincula GitHub desde «Detalles del proyecto» para incluir commits en esta cronología.</p>}
+        <section class="recent-updates" aria-label="Commits y acciones recientes">
+          <section class="activity-panel card" aria-labelledby="commits-heading">
+            <div class="activity-heading"><div><p class="eyebrow">GitHub</p><h2 id="commits-heading">Commits recientes</h2></div>
+              {project.githubRepository && <a class="button secondary" href={`https://github.com/${project.githubRepository}`} target="_blank" rel="noreferrer">{project.githubRepository} ↗</a>}
+            </div>
+            {githubError && <p class="github-error" role="alert">{githubError} <a href="/settings">Revisar GitHub en Ajustes</a></p>}
+            {!githubError && recentCommits.length === 0 && <p class="muted">{project.githubRepository ? 'Todavía no hay commits en este repositorio.' : 'Vincula GitHub desde «Detalles del proyecto» para ver sus commits.'}</p>}
+            {!githubError && recentCommits.length > 0 && (
+              <ol class="activity-list">
+                {recentCommits.map((commit) => (
+                  <li>
+                    <time datetime={commit.committedAt}>{new Date(commit.committedAt).toLocaleString('es-ES')}</time>
+                    <div><strong><a href={commit.url} target="_blank" rel="noreferrer">{commit.message}</a></strong><small>{commit.author ?? 'Autor desconocido'} · {commit.sha.slice(0, 7)}</small></div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+          <section class="activity-panel card" aria-labelledby="activity-heading">
+            <div class="activity-heading"><div><p class="eyebrow">Seguimiento</p><h2 id="activity-heading">Acciones recientes</h2></div></div>
+            {activityError && <p class="github-error" role="alert">{activityError}</p>}
+            {!activityError && recentActivities.length === 0 && <p class="muted">Todavía no hay acciones en este proyecto.</p>}
+            {!activityError && recentActivities.length > 0 && (
+              <ol class="activity-list">
+                {recentActivities.map((activity) => (
+                  <li>
+                    <time datetime={activity.createdAt}>{new Date(activity.createdAt).toLocaleString('es-ES')}</time>
+                    <div><strong>{activityLabel(activity)}</strong>{activity.fromStatus && activity.toStatus && <small>{TaskStatusLabels[activity.fromStatus]} → {TaskStatusLabels[activity.toStatus]}</small>}</div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
         </section>
         <dialog class="task-modal project-modal" id="project-modal" aria-labelledby="project-modal-title" open={Boolean(updateForm)}>
           <form method="post" class="quick-add">
@@ -533,7 +545,8 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .summary-stats .has-overdue strong { color: #a83f32; }
   .next-task { margin: 0.9rem 0 0; color: var(--subtle); }
   .next-task a { color: var(--accent-text); font-weight: 650; }
-  .activity-panel { margin: 1.5rem 0 2rem; }
+  .recent-updates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 1rem; margin: 1.5rem 0 2rem; }
+  .activity-panel { min-width: 0; margin: 0; }
   .activity-heading { margin-bottom: 1rem; }
   .activity-list { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; }
   .activity-list li { display: grid; grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr); gap: 1rem; border-top: 1px solid var(--border); padding: 0.8rem 0; }
@@ -574,5 +587,6 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
   .archive-panel p { color: #58665c; line-height: 1.5; }
   .delete-panel { border-top: 1px solid #dce2da; padding: 1rem 1.25rem 1.25rem; }
+  @media (max-width: 800px) { .recent-updates { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .project-actions, .tasks-header, .task-link, .filters, .summary-heading, .activity-heading { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } .quick-fields { grid-template-columns: 1fr; } .summary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-list li { grid-template-columns: 1fr; gap: 0.25rem; } }
 </style>
