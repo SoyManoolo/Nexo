@@ -1,0 +1,75 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import { createApiClient } from '../lib/api';
+import { TaskStatusLabels, type Project, type Task } from '@nexo/contracts';
+
+const q = (Astro.url.searchParams.get('q') ?? '').trim().slice(0, 120);
+const status = Astro.url.searchParams.get('status') ?? '';
+const priority = Astro.url.searchParams.get('priority') ?? '';
+const projectId = Astro.url.searchParams.get('project') ?? '';
+const tag = (Astro.url.searchParams.get('tag') ?? '').trim().slice(0, 40);
+const validStatuses = ['pending', 'in_progress', 'in_review', 'done', 'blocked'];
+const validPriorities = ['low', 'medium', 'high'];
+let tasks: Task[] = [];
+let projects: Project[] = [];
+let errorMessage: string | null = null;
+try {
+  const api = createApiClient();
+  [tasks, projects] = await Promise.all([api.listTasks(), api.listProjects()]);
+} catch (error) {
+  console.error('No se pudieron cargar los resultados de búsqueda:', error);
+  errorMessage = 'No se pudieron cargar los datos. Comprueba la conexión con la API.';
+}
+const projectNames = new Map(projects.map((project) => [project.id, project.name]));
+const normalizedQuery = q.toLocaleLowerCase('es');
+const results = tasks.filter((task) => {
+  if (status && validStatuses.includes(status) && task.status !== status) return false;
+  if (priority && validPriorities.includes(priority) && task.priority !== priority) return false;
+  if (projectId && task.projectId !== projectId) return false;
+  if (tag && !task.tags.some((value) => value.toLocaleLowerCase('es') === tag.toLocaleLowerCase('es'))) return false;
+  if (!normalizedQuery) return true;
+  const searchable = [task.title, task.notes ?? '', task.blockedReason ?? '', ...task.tags, projectNames.get(task.projectId ?? '') ?? ''].join(' ').toLocaleLowerCase('es');
+  return searchable.includes(normalizedQuery);
+});
+const projectResults = projects.filter((project) => !normalizedQuery || `${project.name} ${project.description ?? ''} ${project.notes ?? ''}`.toLocaleLowerCase('es').includes(normalizedQuery));
+const dateFormatter = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: process.env.NEXO_TIME_ZONE ?? 'Europe/Madrid' });
+---
+
+<AppLayout title="Buscar · Nexo" section="search">
+  <main class="page">
+    <header class="page-header"><div><p class="eyebrow">Encuentra lo que buscas</p><h1>Búsqueda global</h1><p class="page-intro">Busca en tareas, notas, etiquetas y proyectos, y combina filtros.</p></div></header>
+    {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/search">Volver a intentar</a></div>}
+    <form method="get" class="search-form card">
+      <label class="field search-query">Buscar <input name="q" type="search" value={q} placeholder="Nombre, nota o etiqueta" autofocus /></label>
+      <label class="field">Estado <select name="status"><option value="">Todos</option>{validStatuses.map((value) => <option value={value} selected={status === value}>{TaskStatusLabels[value as Task['status']]}</option>)}</select></label>
+      <label class="field">Prioridad <select name="priority"><option value="">Todas</option>{validPriorities.map((value) => <option value={value} selected={priority === value}>{value === 'high' ? 'Alta' : value === 'medium' ? 'Media' : 'Baja'}</option>)}</select></label>
+      <label class="field">Proyecto <select name="project"><option value="">Todos</option>{projects.map((project) => <option value={project.id} selected={projectId === project.id}>{project.name}</option>)}</select></label>
+      <label class="field">Etiqueta <input name="tag" value={tag} maxlength="40" placeholder="Exacta" /></label>
+      <button class="button" type="submit">Buscar</button>
+    </form>
+    <section class="results-section"><h2>Proyectos <span class="muted">({projectResults.length})</span></h2>
+      {projectResults.length ? <ul class="result-list">{projectResults.map((project) => <li><a class="card result project-result" href={`/projects/${project.id}`}><strong>{project.name}</strong><span>{project.description}</span><small>{project.status === 'active' ? 'Activo' : 'Archivado'}</small></a></li>)}</ul> : <p class="muted">No hay proyectos coincidentes.</p>}
+    </section>
+    <section class="results-section"><h2>Tareas <span class="muted">({results.length})</span></h2>
+      {results.length ? <ul class="result-list">{results.map((task) => <li><a class="card result" href={`/tasks/${task.id}`}><span><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · {TaskStatusLabels[task.status]} · {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}</small>{task.notes && <span class="notes-preview">{task.notes}</span>}{task.tags.length > 0 && <span class="tags">{task.tags.map((value) => <span class="tag">{value}</span>)}</span>}</span><small>{task.dueAt ? `Vence ${dateFormatter.format(new Date(task.dueAt))}` : ''}</small></a></li>)}</ul> : <p class="muted">No hay tareas coincidentes. Prueba a quitar algún filtro.</p>}
+    </section>
+  </main>
+</AppLayout>
+
+<style>
+  .search-form { display: grid; grid-template-columns: minmax(14rem, 2fr) repeat(4, minmax(8rem, 1fr)) auto; align-items: end; gap: 0.7rem; margin-bottom: 1.5rem; }
+  .search-form .field { min-width: 0; }
+  .search-form .button { white-space: nowrap; }
+  .results-section { margin-top: 1.5rem; }
+  .results-section h2 { font-size: 1.1rem; }
+  .result-list { display: grid; gap: 0.55rem; list-style: none; padding: 0; }
+  .result { display: flex; align-items: center; justify-content: space-between; gap: 1rem; color: inherit; text-decoration: none; }
+  .result > span:first-child, .project-result strong { display: grid; gap: 0.3rem; }
+  .result small, .project-result span { color: var(--subtle); }
+  .result:hover { border-color: var(--accent-text); }
+  .notes-preview { color: var(--subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55rem; }
+  .tags { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .tag { border-radius: 999px; padding: 0.15rem 0.5rem; background: var(--surface-muted); font-size: 0.75rem; }
+  @media (max-width: 1000px) { .search-form { grid-template-columns: repeat(3, minmax(0, 1fr)); } .search-query { grid-column: span 2; } }
+  @media (max-width: 650px) { .search-form { grid-template-columns: 1fr 1fr; } .search-query { grid-column: span 2; } .search-form .button { grid-column: 1 / -1; } .result { align-items: start; } }
+</style>

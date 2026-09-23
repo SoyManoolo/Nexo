@@ -46,6 +46,7 @@ const ProjectDescriptionInputSchema = z
   .string()
   .trim()
   .transform((description) => (description === '' ? null : description));
+const ProjectNotesInputSchema = z.string().trim().max(10_000).transform((notes) => notes === '' ? null : notes).nullable();
 const ProjectColorInputSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 const TaskTitleInputSchema = z.string().trim().min(1).max(200);
 const TaskNotesInputSchema = z
@@ -101,6 +102,7 @@ export const CreateProjectInputSchema = z
   .object({
     name: ProjectNameInputSchema,
     description: ProjectDescriptionInputSchema.nullable().optional(),
+    notes: ProjectNotesInputSchema.optional(),
     color: ProjectColorInputSchema.nullable().optional(),
     githubRepository: z.string().trim().max(500).nullable().optional(),
   })
@@ -113,6 +115,7 @@ export const UpdateProjectInputSchema = z
   .object({
     name: ProjectNameInputSchema.optional(),
     description: ProjectDescriptionInputSchema.nullable().optional(),
+    notes: ProjectNotesInputSchema.optional(),
     color: ProjectColorInputSchema.nullable().optional(),
     githubRepository: z.string().trim().max(500).nullable().optional(),
   })
@@ -155,6 +158,7 @@ export const CreateTaskInputSchema = z
     completedAt: TaskTimestampInputSchema.nullable().optional(),
     blockedReason: z.string().trim().min(1).nullable().optional(),
     notes: TaskNotesInputSchema.optional(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   })
   .strict()
   .superRefine((input, context) => {
@@ -177,6 +181,7 @@ export const UpdateTaskInputSchema = z
     completedAt: TaskTimestampInputSchema.nullable().optional(),
     blockedReason: z.string().trim().min(1).nullable().optional(),
     notes: TaskNotesInputSchema.optional(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   })
   .strict()
   .refine((input) => Object.keys(input).length > 0, {
@@ -215,6 +220,7 @@ export const ProjectSchema = z.object({
   id: EntityIdSchema,
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(2_000).nullable(),
+  notes: z.string().max(10_000).nullable().default(null),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/)
@@ -283,6 +289,7 @@ export const TaskSchema = z.object({
   id: EntityIdSchema,
   title: z.string().trim().min(1).max(200),
   notes: z.string().nullable(),
+  tags: z.array(z.string().min(1).max(40)).default([]),
   projectId: EntityIdSchema.nullable(),
   status: TaskStatusSchema,
   priority: TaskPrioritySchema,
@@ -297,3 +304,14 @@ export const TaskSchema = z.object({
 });
 
 export type Task = z.infer<typeof TaskSchema>;
+
+export const TaskAttachmentSchema = z.object({
+  id: EntityIdSchema,
+  taskId: EntityIdSchema,
+  fileName: z.string().min(1).max(255),
+  mimeType: z.string().min(1).max(100),
+  size: z.number().int().nonnegative(),
+  createdAt: TimestampSchema,
+});
+
+export type TaskAttachment = z.infer<typeof TaskAttachmentSchema>;

@@ -9,6 +9,7 @@ import { ProjectActivityRepository } from '../repositories/project-activity.repo
 
 const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 2_000;
+const MAX_NOTES_LENGTH = 10_000;
 const COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 const GITHUB_REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
@@ -69,6 +70,15 @@ function normalizeDescription(description: string | null | undefined): string | 
   return normalizedDescription || null;
 }
 
+function normalizeNotes(notes: string | null | undefined): string | null {
+  if (notes === undefined || notes === null) return notes ?? null;
+  const normalized = notes.trim();
+  if (normalized.length > MAX_NOTES_LENGTH) {
+    throw new ProjectValidationError(`Project notes cannot exceed ${MAX_NOTES_LENGTH} characters`);
+  }
+  return normalized || null;
+}
+
 function normalizeColor(color: string | null | undefined): string | null {
   if (color === undefined || color === null) {
     return color ?? null;
@@ -91,6 +101,7 @@ export class ProjectService {
     return this.projectRepository.create({
       name: normalizeName(input.name),
       description: normalizeDescription(input.description),
+      notes: normalizeNotes(input.notes),
       color: normalizeColor(input.color),
       githubRepository: normalizeGithubRepository(input.githubRepository),
     });
@@ -123,6 +134,10 @@ export class ProjectService {
 
     if (input.description !== undefined) {
       normalizedInput.description = normalizeDescription(input.description);
+    }
+
+    if (input.notes !== undefined) {
+      normalizedInput.notes = normalizeNotes(input.notes);
     }
 
     if (input.color !== undefined) {

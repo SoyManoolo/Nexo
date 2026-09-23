@@ -59,6 +59,7 @@ if (Astro.request.method === 'POST') {
       await api.updateProject(id, {
         name: String(form.get('name') ?? ''),
         description: String(form.get('description') ?? '') || null,
+        notes: String(form.get('notes') ?? '') || null,
         color: String(form.get('color') ?? '') || null,
         githubRepository: String(form.get('githubRepository') ?? '') || null,
       });
@@ -93,6 +94,7 @@ if (Astro.request.method === 'POST') {
       await api.createTask({
         title: String(form.get('title') ?? ''),
         notes: String(form.get('notes') ?? '') || null,
+        tags: String(form.get('tags') ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
         priority: String(form.get('priority') ?? 'medium') as Task['priority'],
         scheduledFor: String(form.get('scheduledFor') ?? '') || null,
         dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
@@ -215,6 +217,10 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
           </div>
           {nextTask ? <p class="next-task">Siguiente tarea: <a href={`/tasks/${nextTask.id}`}>{nextTask.title}</a></p> : <p class="next-task">{allTasks.length ? 'No quedan tareas abiertas.' : 'Añade tareas para empezar a seguir el avance.'}</p>}
         </section>}
+        <section class="card project-notes" aria-labelledby="project-notes-heading">
+          <div class="tasks-header"><h2 id="project-notes-heading">Notas del proyecto</h2><button class="button secondary" type="button" id="open-project-modal-notes">Editar</button></div>
+          {project.notes ? <p class="project-notes-text">{project.notes}</p> : <p class="muted">Guarda aquí decisiones, contexto y referencias del proyecto.</p>}
+        </section>
         <section aria-labelledby="tasks-heading">
             <div class="tasks-header">
               <h2 id="tasks-heading">Tareas <span class="muted">({tasks.length})</span></h2>
@@ -285,6 +291,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
                     </div>
                     <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" value={formValue(taskForm, 'title')} autofocus /></label>
                     <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(taskForm, 'notes')}</textarea></label>
+                    <label class="field">Etiquetas <input name="tags" maxlength="820" placeholder="diseño, urgente, ideas" value={formValue(taskForm, 'tags')} /><small>Separa las etiquetas con comas.</small></label>
                     <div class="quick-fields">
                       <label class="field">Prioridad <select name="priority"><option value="medium" selected={formValue(taskForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(taskForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(taskForm, 'priority') === 'high'}>Alta</option></select></label>
                       <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(taskForm, 'scheduledFor')} /></label>
@@ -344,6 +351,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               <input type="hidden" name="intent" value="update" />
               <label class="field">Nombre <input name="name" required maxlength="120" value={formValue(updateForm, 'name', project.name)} /></label>
               <label class="field">Descripción <textarea name="description" maxlength="2000">{formValue(updateForm, 'description', project.description ?? '')}</textarea></label>
+              <label class="field">Notas del proyecto <textarea name="notes" maxlength="10000" rows="8">{formValue(updateForm, 'notes', project.notes ?? '')}</textarea><small>Decisiones, contexto y referencias que quieras conservar.</small></label>
               <label class="field">Color <input name="color" type="color" value={formValue(updateForm, 'color', project.color ?? '#4d8564')} /></label>
               <label class="field">Repositorio de GitHub <input name="githubRepository" type="url" maxlength="500" placeholder="https://github.com/organizacion/repositorio" value={formValue(updateForm, 'githubRepository', project.githubRepository ? `https://github.com/${project.githubRepository}` : '')} /></label>
               <button class="button secondary" type="submit">Guardar cambios</button>
@@ -393,6 +401,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   const projectModal = document.querySelector<HTMLDialogElement>('#project-modal');
   const openTaskModal = document.querySelector<HTMLButtonElement>('#open-task-modal');
   const openProjectModal = document.querySelector<HTMLButtonElement>('#open-project-modal');
+  const openProjectModalNotes = document.querySelector<HTMLButtonElement>('#open-project-modal-notes');
   const closeTaskModal = document.querySelector<HTMLButtonElement>('#close-task-modal');
   const closeProjectModal = document.querySelector<HTMLButtonElement>('#close-project-modal');
   const cancelTaskModal = document.querySelector<HTMLButtonElement>('#cancel-task-modal');
@@ -405,6 +414,10 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
 
   openTaskModal?.addEventListener('click', () => taskModal?.showModal());
   openProjectModal?.addEventListener('click', () => projectModal?.showModal());
+  openProjectModalNotes?.addEventListener('click', () => {
+    projectModal?.showModal();
+    projectModal?.querySelector<HTMLTextAreaElement>('textarea[name="notes"]')?.focus();
+  });
   closeTaskModal?.addEventListener('click', () => taskModal?.close());
   closeProjectModal?.addEventListener('click', () => projectModal?.close());
   cancelTaskModal?.addEventListener('click', () => taskModal?.close());
@@ -537,6 +550,8 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .summary-heading .eyebrow, .activity-heading .eyebrow { margin: 0 0 0.3rem; }
   .summary-heading h2, .activity-heading h2 { margin: 0; }
   .summary-heading > strong { color: var(--accent-text); }
+  .project-notes { margin: 1rem 0; }
+  .project-notes-text { white-space: pre-wrap; line-height: 1.6; }
   .project-summary progress { display: block; width: 100%; height: 0.7rem; margin: 1rem 0; accent-color: var(--accent-text); }
   .summary-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem; }
   .summary-stats article { display: grid; gap: 0.15rem; border-radius: 0.55rem; padding: 0.75rem; background: var(--surface-muted); }

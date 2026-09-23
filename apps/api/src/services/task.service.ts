@@ -68,6 +68,15 @@ function normalizeBlockedReason(reason: string | null | undefined): string | nul
   return normalizedReason || null;
 }
 
+function normalizeTags(tags: string[] | undefined): string[] {
+  const normalized = new Map<string, string>();
+  for (const tag of tags ?? []) {
+    const value = tag.trim().replace(/\s+/g, ' ');
+    if (value) normalized.set(value.toLocaleLowerCase('es'), value);
+  }
+  return [...normalized.values()].slice(0, 20);
+}
+
 export class TaskService {
   constructor(
     private readonly taskRepository = new TaskRepository(),
@@ -89,6 +98,7 @@ export class TaskService {
       status,
       completedAt: status === 'done' ? input.completedAt ?? new Date().toISOString() : null,
       blockedReason: status === 'blocked' ? blockedReason : null,
+      tags: normalizeTags(input.tags),
     });
   }
 
@@ -141,6 +151,10 @@ export class TaskService {
 
     if (input.priority !== undefined) {
       normalizedInput.priority = input.priority;
+    }
+
+    if (input.tags !== undefined) {
+      normalizedInput.tags = normalizeTags(input.tags);
     }
 
     if (input.pinned !== undefined) {

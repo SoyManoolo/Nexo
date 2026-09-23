@@ -7,6 +7,7 @@ import {
   TaskValidationError,
 } from '../services/task.service.js';
 import { GithubIntegrationError } from '../services/github.service.js';
+import { TaskAttachmentValidationError } from '../services/task-attachment.service.js';
 
 type DatabaseError = Error & { code?: string };
 
@@ -27,6 +28,10 @@ export function handleApiError(error: Error, context: Context): Response {
   }
 
   if (error instanceof TaskValidationError) {
+    return context.json({ error: 'validation_error', message: error.message }, 400);
+  }
+
+  if (error instanceof TaskAttachmentValidationError) {
     return context.json({ error: 'validation_error', message: error.message }, 400);
   }
 

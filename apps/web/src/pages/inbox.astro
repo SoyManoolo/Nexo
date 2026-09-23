@@ -53,6 +53,7 @@ if (Astro.request.method === 'POST') {
       title: String(form.get('title') ?? ''),
       notes: String(form.get('notes') ?? '') || null,
       priority: String(form.get('priority') ?? 'medium') as Task['priority'],
+      tags: String(form.get('tags') ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
       scheduledFor: String(form.get('scheduledFor') ?? '') || null,
       dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
       projectId,
@@ -93,6 +94,7 @@ try {
         <label class="field">Nueva tarea <input name="title" maxlength="200" required placeholder="¿Qué tienes pendiente?" autocomplete="off" value={formValue(submittedForm, 'title')} autofocus /></label>
         <div class="capture-details">
           <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(submittedForm, 'notes')}</textarea></label>
+          <label class="field">Etiquetas <input name="tags" maxlength="820" placeholder="diseño, urgente, ideas" value={formValue(submittedForm, 'tags')} /><small>Separa las etiquetas con comas.</small></label>
           <label class="field">Proyecto
             <select name="projectId"><option value="">Sin proyecto</option>{projects.map((project) => <option value={project.id} selected={formValue(submittedForm, 'projectId') === project.id}>{project.name}</option>)}</select>
           </label>

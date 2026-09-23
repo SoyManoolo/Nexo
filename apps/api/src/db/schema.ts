@@ -4,6 +4,7 @@ import {
   check,
   date,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -29,6 +30,7 @@ export const projects = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     name: varchar('name', { length: 120 }).notNull(),
     description: text('description'),
+    notes: text('notes'),
     color: varchar('color', { length: 7 }),
     githubRepository: varchar('github_repository', { length: 200 }),
     status: projectStatus('status').notNull().default('active'),
@@ -67,6 +69,7 @@ export const tasks = pgTable(
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
     title: varchar('title', { length: 200 }).notNull(),
     notes: text('notes'),
+    tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
     status: taskStatus('status').notNull().default('pending'),
     priority: taskPriority('priority').notNull().default('medium'),
     pinned: boolean('pinned').notNull().default(false),
@@ -118,8 +121,23 @@ export const projectActivities = pgTable(
   (table) => [index('project_activities_project_created_idx').on(table.projectId, table.createdAt)],
 );
 
+export const taskAttachments = pgTable(
+  'task_attachments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    taskId: uuid('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+    fileName: varchar('file_name', { length: 255 }).notNull(),
+    mimeType: varchar('mime_type', { length: 100 }).notNull(),
+    size: integer('size').notNull(),
+    storageKey: uuid('storage_key').notNull().unique(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('task_attachments_task_id_idx').on(table.taskId)],
+);
+
 export type ProjectRow = typeof projects.$inferSelect;
 export type NewProjectRow = typeof projects.$inferInsert;
 export type TaskRow = typeof tasks.$inferSelect;
 export type NewTaskRow = typeof tasks.$inferInsert;
 export type ProjectActivityRow = typeof projectActivities.$inferSelect;
+export type TaskAttachmentRow = typeof taskAttachments.$inferSelect;

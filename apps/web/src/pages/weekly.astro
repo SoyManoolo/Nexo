@@ -1,0 +1,94 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import { createApiClient } from '../lib/api';
+import type { Project, Task } from '@nexo/contracts';
+
+const timeZone = process.env.NEXO_TIME_ZONE ?? 'Europe/Madrid';
+const localDay = new Intl.DateTimeFormat('sv-SE', { timeZone });
+const today = localDay.format(new Date());
+const parseDay = (value: string) => new Date(`${value}T12:00:00Z`);
+const dayKey = (value: Date) => value.toISOString().slice(0, 10);
+const addDays = (value: Date, amount: number) => { const date = new Date(value); date.setUTCDate(date.getUTCDate() + amount); return date; };
+const todayDate = parseDay(today);
+const weekStart = addDays(todayDate, -((todayDate.getUTCDay() + 6) % 7));
+const nextWeekStart = addDays(weekStart, 7);
+const previousWeekStart = addDays(weekStart, -7);
+const startKey = dayKey(weekStart);
+const endKey = dayKey(addDays(nextWeekStart, -1));
+const inRange = (value: string | null, start: string, end: string) => Boolean(value && value >= start && value < end);
+const weekLabel = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+let tasks: Task[] = [];
+let projects: Project[] = [];
+let errorMessage: string | null = null;
+try {
+  const api = createApiClient();
+  [tasks, projects] = await Promise.all([api.listTasks(), api.listProjects({ status: 'active' })]);
+} catch (error) {
+  console.error('No se pudo cargar el resumen semanal:', error);
+  errorMessage = 'No se pudo cargar el resumen semanal. Comprueba la conexión con la API.';
+}
+const projectNames = new Map(projects.map((project) => [project.id, project.name]));
+const completedThisWeek = tasks.filter((task) => inRange(task.completedAt, startKey, dayKey(nextWeekStart))).length;
+const completedLastWeek = tasks.filter((task) => inRange(task.completedAt, dayKey(previousWeekStart), startKey)).length;
+const createdThisWeek = tasks.filter((task) => inRange(localDay.format(new Date(task.createdAt)), startKey, dayKey(nextWeekStart))).length;
+const open = tasks.filter((task) => task.status !== 'done');
+const blocked = open.filter((task) => task.status === 'blocked');
+const overdue = open.filter((task) => task.dueAt && localDay.format(new Date(task.dueAt)) < today);
+const dueThisWeek = open.filter((task) => {
+  const dueDay = task.dueAt ? localDay.format(new Date(task.dueAt)) : task.scheduledFor;
+  return dueDay && dueDay >= today && dueDay <= endKey;
+});
+const days = Array.from({ length: 7 }, (_, index) => {
+  const date = addDays(weekStart, index);
+  const key = dayKey(date);
+  const count = tasks.filter((task) => task.completedAt && localDay.format(new Date(task.completedAt)) === key).length;
+  const label = new Intl.DateTimeFormat('es-ES', { weekday: 'short', timeZone: 'UTC' }).format(date);
+  return { key, label, count };
+});
+const maxDaily = Math.max(1, ...days.map((day) => day.count));
+const dateRange = `${weekLabel.format(weekStart)} – ${weekLabel.format(addDays(nextWeekStart, -1))}`;
+const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone }).format(new Date(iso));
+---
+
+<AppLayout title="Esta semana · Nexo" section="weekly">
+  <main class="page">
+    <header class="page-header"><div><p class="eyebrow">Revisión semanal</p><h1>Esta semana</h1><p class="page-intro">{dateRange} · Un vistazo a lo que avanzó y a lo que requiere atención.</p></div></header>
+    {errorMessage ? <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/weekly">Volver a intentar</a></div> : <>
+      <section class="metrics" aria-label="Resumen de la semana">
+        <a class="metric card" href="/search?status=done"><span>Completadas</span><strong>{completedThisWeek}</strong><small>{completedThisWeek > completedLastWeek ? `+${completedThisWeek - completedLastWeek} respecto a la semana pasada` : completedThisWeek < completedLastWeek ? `${completedThisWeek - completedLastWeek} respecto a la semana pasada` : 'Igual que la semana pasada'}</small></a>
+        <a class="metric card" href="/search"><span>Nuevas esta semana</span><strong>{createdThisWeek}</strong><small>Tareas capturadas</small></a>
+        <a class="metric card" href="/search?status=blocked"><span>Bloqueadas</span><strong>{blocked.length}</strong><small>Revisa qué las desbloquea</small></a>
+        <a class="metric card" href="/search"><span>Vencidas</span><strong>{overdue.length}</strong><small>Con fecha límite anterior a hoy</small></a>
+      </section>
+      <div class="weekly-grid">
+        <section class="card completion-chart"><h2>Completadas por día</h2><div class="bars" role="img" aria-label={days.map((day) => `${day.label}: ${day.count}`).join(', ')}>{days.map((day) => <div class="bar-item"><strong>{day.count || ''}</strong><span class="bar-track"><i style={`--bar-height:${Math.max(5, day.count / maxDaily * 100)}%`}></i></span><small>{day.label}</small></div>)}</div></section>
+        <section class="card"><h2>Fechas de esta semana <span class="muted">({dueThisWeek.length})</span></h2>{dueThisWeek.length ? <ul class="task-list">{dueThisWeek.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {task.dueAt ? fmtDate(task.dueAt) : fmtDate(`${task.scheduledFor}T12:00:00`)}</small></a></li>)}</ul> : <p class="muted">No hay tareas próximas con fecha esta semana.</p>}</section>
+        <section class="card"><h2>Bloqueadas <span class="muted">({blocked.length})</span></h2>{blocked.length ? <ul class="task-list">{blocked.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · {task.blockedReason}</small></a></li>)}</ul> : <p class="muted">No hay tareas bloqueadas.</p>}</section>
+        <section class="card"><h2>Vencidas <span class="muted">({overdue.length})</span></h2>{overdue.length ? <ul class="task-list">{overdue.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · Venció {fmtDate(task.dueAt!)}</small></a></li>)}</ul> : <p class="muted">No hay tareas vencidas.</p>}</section>
+      </div>
+    </>}
+  </main>
+</AppLayout>
+
+<style>
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+  .metric { display: grid; gap: 0.35rem; color: inherit; text-decoration: none; }
+  .metric:hover { border-color: var(--accent); }
+  .metric span { color: var(--subtle); font-size: 0.88rem; }
+  .metric strong { font-size: 2rem; line-height: 1.1; }
+  .metric small { color: var(--subtle); }
+  .weekly-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; margin-top: 1rem; }
+  .completion-chart { min-height: 15rem; }
+  .bars { display: flex; align-items: end; justify-content: space-around; gap: 0.5rem; height: 10rem; padding-top: 1rem; }
+  .bar-item { display: grid; justify-items: center; align-items: end; gap: 0.3rem; height: 100%; min-width: 2rem; }
+  .bar-item strong, .bar-item small { color: var(--subtle); font-size: 0.8rem; }
+  .bar-track { display: flex; align-items: end; width: min(2.2rem, 7vw); height: 100%; border-radius: 0.4rem; background: var(--surface-muted); overflow: hidden; }
+  .bar-track i { display: block; width: 100%; height: var(--bar-height); min-height: 0.2rem; border-radius: inherit; background: var(--accent-text); }
+  .task-list { display: grid; gap: 0.2rem; list-style: none; padding: 0; margin: 0; }
+  .task-list li + li { border-top: 1px solid var(--border); }
+  .task-list a { display: grid; gap: 0.2rem; padding: 0.65rem 0; color: inherit; text-decoration: none; }
+  .task-list a:hover strong { color: var(--accent-text); }
+  .task-list small { color: var(--subtle); }
+  @media (max-width: 850px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 650px) { .weekly-grid { grid-template-columns: 1fr; } }
+</style>

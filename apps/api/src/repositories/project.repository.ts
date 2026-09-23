@@ -6,6 +6,7 @@ import { projects, type ProjectRow } from '../db/schema.js';
 export type CreateProjectInput = {
   name: string;
   description?: string | null;
+  notes?: string | null;
   color?: string | null;
   githubRepository?: string | null;
 };
@@ -13,6 +14,7 @@ export type CreateProjectInput = {
 export type UpdateProjectInput = {
   name?: string;
   description?: string | null;
+  notes?: string | null;
   color?: string | null;
   githubRepository?: string | null;
 };
@@ -26,6 +28,7 @@ function toProject(row: ProjectRow): Project {
     id: row.id,
     name: row.name,
     description: row.description,
+    notes: row.notes,
     color: row.color,
     githubRepository: row.githubRepository,
     status: row.status,

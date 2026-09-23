@@ -2,6 +2,7 @@ node_modules/
 .astro/
 dist/
 coverage/
+/uploads/
 .env
 .env.*
 !.env.example

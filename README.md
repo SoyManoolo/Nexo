@@ -13,6 +13,8 @@ La aplicación web y la API están implementadas y usan PostgreSQL. Actualmente 
 - consultar Inicio (calendario mensual o semanal, tareas ancladas y recientes), Inbox, Hoy y Proyectos;
 - importar repositorios de GitHub como proyectos, vincularlos a proyectos existentes y consultar sus commits recientes;
 - consultar el avance, las tareas abiertas, bloqueadas y vencidas de cada proyecto, y una cronología de actividad con cambios de tareas y commits de GitHub;
+- revisar un resumen semanal, buscar tareas y proyectos, filtrar por estado, prioridad, proyecto y etiquetas;
+- guardar etiquetas en tareas, notas de contexto en proyectos y adjuntar capturas/documentos a tareas;
 - usar tema claro u oscuro y contraer la navegación lateral.
 
 El servidor MCP expone proyectos y tareas por Streamable HTTP para conectarse a Codex y Claude Code.
@@ -50,6 +52,10 @@ docker compose up --build -d
 La web estará disponible en `http://127.0.0.1:4321`. PostgreSQL, API y MCP no publican puertos; para
 usar la web y API como procesos locales de desarrollo, apunta `DATABASE_URL` a una instancia
 PostgreSQL accesible desde el host.
+
+En Docker, los archivos adjuntos se guardan en el volumen persistente `uploads_data` y sus metadatos
+en PostgreSQL. Haz copia de seguridad de ambos volúmenes. `docker compose down -v` elimina también
+los adjuntos.
 
 Prepara las dependencias y los archivos de configuración para el desarrollo local. Usa el bloque
 de tu sistema:

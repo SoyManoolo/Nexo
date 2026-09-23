@@ -1,5 +1,5 @@
 ---
-interface Props { title: string; section?: 'home' | 'projects' | 'inbox' | 'today' | 'settings'; }
+interface Props { title: string; section?: 'home' | 'projects' | 'inbox' | 'today' | 'settings' | 'search' | 'weekly'; }
 const { title, section } = Astro.props;
 ---
 
@@ -32,6 +32,8 @@ const { title, section } = Astro.props;
           <a href="/inbox" aria-label="Inbox" aria-current={section === 'inbox' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">☷</span><span class="nav-label">Inbox</span></a>
           <a href="/today" aria-label="Hoy" aria-current={section === 'today' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">◷</span><span class="nav-label">Hoy</span></a>
           <a href="/projects" aria-label="Proyectos" aria-current={section === 'projects' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-label">Proyectos</span></a>
+          <a href="/search" aria-label="Buscar" aria-current={section === 'search' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">⌕</span><span class="nav-label">Buscar</span></a>
+          <a href="/weekly" aria-label="Resumen semanal" aria-current={section === 'weekly' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">◷</span><span class="nav-label">Esta semana</span></a>
           <a href="/settings" aria-label="Ajustes" aria-current={section === 'settings' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Ajustes</span></a>
         </nav>
         <p class="sidebar-note">Haz sitio para lo importante.</p>

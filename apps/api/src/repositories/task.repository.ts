@@ -25,6 +25,7 @@ function toTask(row: TaskRow): Task {
     id: row.id,
     title: row.title,
     notes: row.notes,
+    tags: row.tags ?? [],
     projectId: row.projectId,
     status: row.status,
     priority: row.priority,

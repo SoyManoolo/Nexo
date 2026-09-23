@@ -1,10 +1,12 @@
 import {
   CreateProjectInputSchema, CreateTaskInputSchema, HealthResponseSchema, ListProjectsQuerySchema,
   ProjectActivitySchema,
+  TaskAttachmentSchema,
   GithubCommitSchema, GithubIntegrationStatusSchema, GithubRepositorySchema, ImportGithubProjectInputSchema,
   ListTasksQuerySchema, ProjectSchema, TaskSchema, UpdateProjectInputSchema, UpdateTaskInputSchema,
   type CreateProjectInput, type CreateTaskInput, type HealthResponse, type ListProjectsQuery,
   type ProjectActivity,
+  type TaskAttachment,
   type GithubCommit, type GithubIntegrationStatus, type GithubRepository, type ImportGithubProjectInput,
   type ListTasksQuery, type Project, type Task, type UpdateProjectInput, type UpdateTaskInput,
 } from '@nexo/contracts';
@@ -85,6 +87,29 @@ export class NexoApiClient {
   async completeTask(id: string): Promise<Task> { return this.taskAction(id, 'complete'); }
   async reopenTask(id: string): Promise<Task> { return this.taskAction(id, 'reopen'); }
   async moveTaskToInbox(id: string): Promise<Task> { return this.taskAction(id, 'move-to-inbox'); }
+  async listTaskAttachments(id: string): Promise<TaskAttachment[]> { return this.request(`/tasks/${encodeURIComponent(id)}/attachments`, { method: 'GET' }, z.array(TaskAttachmentSchema)); }
+  async addTaskAttachment(id: string, file: File): Promise<TaskAttachment> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const headers = new Headers(this.headers);
+    const form = new FormData();
+    form.set('file', file, file.name);
+    try {
+      const response = await this.fetchImplementation(new URL(`/tasks/${encodeURIComponent(id)}/attachments`, this.baseUrl), {
+        method: 'POST', headers, body: form, signal: controller.signal,
+      });
+      if (!response.ok) throw await this.toHttpError(response);
+      const result = TaskAttachmentSchema.safeParse(await response.json());
+      if (!result.success) throw new NexoApiResponseValidationError(result.error);
+      return result.data;
+    } catch (error) {
+      if (controller.signal.aborted) throw new NexoApiTimeoutError(this.timeoutMs);
+      throw error;
+    } finally { clearTimeout(timeout); }
+  }
+  async removeTaskAttachment(id: string, attachmentId: string): Promise<void> {
+    return this.requestEmpty(`/tasks/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`, 'DELETE');
+  }
 
   private async taskAction(id: string, action: string): Promise<Task> { return this.request(`/tasks/${encodeURIComponent(id)}/${action}`, { method: 'POST' }, TaskSchema); }
 

@@ -44,11 +44,14 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-nexo}:${POSTGRES_PASSWORD:-nexo}@postgres:5432/${POSTGRES_DB:-nexo}
       DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
       GITHUB_TOKEN_ENCRYPTION_KEY: ${GITHUB_TOKEN_ENCRYPTION_KEY:-}
+      NEXO_UPLOADS_DIR: /app/uploads
     ports:
       - '${API_BIND_ADDRESS:-127.0.0.1}:${API_HOST_PORT:-3000}:3000'
     depends_on:
       migrate:
         condition: service_completed_successfully
+    volumes:
+      - uploads_data:/app/uploads
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
@@ -107,3 +110,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

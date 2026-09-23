@@ -5,11 +5,12 @@ import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
 import { NexoApiNotFoundError } from '@nexo/api-client';
-import { TaskStatusLabels, type Project, type Task, type TaskStatus } from '@nexo/contracts';
+import { TaskStatusLabels, type Project, type Task, type TaskAttachment, type TaskStatus } from '@nexo/contracts';
 
 const id = Astro.params.id ?? '';
 let task: Task | null = null;
 let projects: Project[] = [];
+let attachments: TaskAttachment[] = [];
 let errorMessage: string | null = null;
 let submittedForm: FormData | null = null;
 let notFound = false;
@@ -31,6 +32,12 @@ if (Astro.request.method === 'POST') {
       await api.moveTaskToInbox(id);
     } else if (intent === 'pin' || intent === 'unpin') {
       await api.updateTask(id, { pinned: intent === 'pin' });
+    } else if (intent === 'add-attachment') {
+      const file = form.get('file');
+      if (!(file instanceof File) || file.size === 0) throw new Error('Selecciona un archivo para adjuntar.');
+      await api.addTaskAttachment(id, file);
+    } else if (intent === 'remove-attachment') {
+      await api.removeTaskAttachment(id, String(form.get('attachmentId') ?? ''));
     } else if (intent === 'save') {
       const current = await api.getTask(id);
       const status = String(form.get('status') ?? 'pending') as TaskStatus;
@@ -42,6 +49,7 @@ if (Astro.request.method === 'POST') {
       await api.updateTask(id, {
         title: String(form.get('title') ?? ''),
         notes: String(form.get('notes') ?? '') || null,
+        tags: String(form.get('tags') ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
         ...(selectedProjectId === current.projectId ? {} : { projectId: selectedProjectId }),
         status,
         priority: String(form.get('priority') ?? 'medium') as Task['priority'],
@@ -84,6 +92,7 @@ if (task) {
       api.listProjects({ status: 'archived' }),
     ]);
     projects = [...active, ...archived];
+    attachments = await api.listTaskAttachments(id);
   } catch (error) {
     console.error('No se pudieron cargar los proyectos para la tarea:', error);
     errorMessage ??= 'La tarea está disponible, pero no se pudo cargar la lista de proyectos.';
@@ -109,6 +118,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               <input type="hidden" name="intent" value="save" />
               <label class="field">Título <input name="title" required maxlength="200" value={formValue(submittedForm, 'title', task.title)} /></label>
               <label class="field">Notas <textarea id="task-notes" name="notes" maxlength="2000">{formValue(submittedForm, 'notes', task.notes ?? '')}</textarea></label>
+              <label class="field">Etiquetas <input name="tags" maxlength="820" value={formValue(submittedForm, 'tags', task.tags.join(', '))} placeholder="diseño, urgente, ideas" /><small>Separa las etiquetas con comas.</small></label>
               <label class="field">Proyecto
                 <select name="projectId">
                   <option value="" selected={formValue(submittedForm, 'projectId', task.projectId ?? '') === ''}>Sin proyecto (inbox)</option>
@@ -143,6 +153,23 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               <label class="field" id="blocked-reason-field">Motivo de bloqueo <input name="blockedReason" value={formValue(submittedForm, 'blockedReason', task.blockedReason ?? '')} placeholder="¿Qué estás esperando?" /></label>
               <button class="button" type="submit">Guardar cambios</button>
             </form>
+          </section>
+          <section class="card attachments">
+            <h2>Archivos adjuntos</h2>
+            <form method="post" enctype="multipart/form-data" class="attachment-upload">
+              <input type="hidden" name="intent" value="add-attachment" />
+              <label class="field">Adjuntar archivo <input type="file" name="file" accept="image/png,image/jpeg,image/webp,application/pdf,text/plain" required /></label>
+              <small>PNG, JPEG, WebP, PDF o TXT · máximo 10 MB</small>
+              <button class="button secondary" type="submit">Subir archivo</button>
+            </form>
+            {attachments.length ? <ul class="attachment-list">{attachments.map((attachment) => (
+              <li>
+                {attachment.mimeType.startsWith('image/') && <a href={`/tasks/${id}/attachments/${attachment.id}`} target="_blank" rel="noreferrer"><img src={`/tasks/${id}/attachments/${attachment.id}`} alt={`Vista previa: ${attachment.fileName}`} loading="lazy" /></a>}
+                <a class="attachment-name" href={`/tasks/${id}/attachments/${attachment.id}`} target="_blank" rel="noreferrer">{attachment.fileName}</a>
+                <small>{(attachment.size / 1024).toFixed(0)} KB</small>
+                <form method="post"><input type="hidden" name="intent" value="remove-attachment" /><input type="hidden" name="attachmentId" value={attachment.id} /><button type="submit" class="link-button">Eliminar</button></form>
+              </li>
+            ))}</ul> : <p class="muted">Aún no hay archivos adjuntos.</p>}
           </section>
           <aside class="card actions">
             <h2>Acciones rápidas</h2>
@@ -204,6 +231,15 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
   .field[hidden] { display: none; }
   .actions { display: grid; gap: 0.8rem; }
   .actions form, .actions button { width: 100%; }
+  .attachments { grid-column: 1 / -1; }
+  .attachment-upload { display: flex; align-items: end; flex-wrap: wrap; gap: 0.7rem; margin-bottom: 1rem; }
+  .attachment-upload .field { flex: 1 1 18rem; }
+  .attachment-upload small { color: var(--subtle); }
+  .attachment-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0.8rem; list-style: none; padding: 0; }
+  .attachment-list li { display: grid; align-content: start; gap: 0.35rem; min-width: 0; }
+  .attachment-list img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 0.5rem; background: var(--surface-muted); }
+  .attachment-name { overflow-wrap: anywhere; }
+  .link-button { border: 0; padding: 0; background: none; color: var(--accent-text); text-decoration: underline; cursor: pointer; }
   @media (max-width: 900px) { .task-layout { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .field-pair { grid-template-columns: 1fr; } }
 </style>

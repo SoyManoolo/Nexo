@@ -161,6 +161,7 @@ GET /projects/550e8400-e29b-41d4-a716-446655440002/activity
 
 Las tareas pueden permanecer en el inbox (`projectId: null`) o pertenecer a un proyecto activo.
 Los proyectos inexistentes devuelven `404` y los archivados no aceptan tareas nuevas (`400`).
+Cada tarea puede guardar hasta 20 etiquetas personalizadas de hasta 40 caracteres.
 
 ### `POST /tasks`
 
@@ -285,3 +286,11 @@ POST /tasks/550e8400-e29b-41d4-a716-446655440003/complete
 POST /tasks/550e8400-e29b-41d4-a716-446655440003/reopen
 POST /tasks/550e8400-e29b-41d4-a716-446655440003/move-to-inbox
 ```
+
+### Archivos adjuntos
+
+`GET /tasks/:id/attachments` lista los archivos; `POST /tasks/:id/attachments` recibe un formulario
+multipart con el campo `file`; `GET /tasks/:id/attachments/:attachmentId` devuelve el archivo y
+`DELETE` elimina el adjunto. Se admiten PNG, JPEG, WebP, PDF y TXT de hasta 10 MB. Los datos del
+archivo se guardan en PostgreSQL y el contenido en el directorio `NEXO_UPLOADS_DIR` (por defecto,
+`uploads`). En Docker Compose, el directorio usa el volumen persistente `uploads_data`.
