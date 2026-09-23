@@ -1,5 +1,6 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
+import { NexoApiError, NexoApiResponseValidationError, NexoApiTimeoutError } from '@nexo/api-client';
 import { createApiClient } from '../../lib/api';
 import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
@@ -15,6 +16,16 @@ let errorMessage: string | null = null;
 let submittedForm: FormData | null = null;
 const showArchived = Astro.url.searchParams.get('status') === 'archived';
 const showGithubImport = Astro.url.searchParams.get('import') === 'github';
+
+function apiLoadErrorMessage(error: unknown): string {
+  if (error instanceof NexoApiResponseValidationError) {
+    return 'La API responde, pero sus datos no coinciden con esta versión de Nexo. Comprueba que las migraciones estén aplicadas y reinicia la API.';
+  }
+  if (error instanceof NexoApiTimeoutError) return error.message;
+  if (error instanceof NexoApiError) return error.message;
+  if (error instanceof Error && error.message.includes('API_BASE_URL')) return error.message;
+  return 'No hemos podido conectar con la API. Comprueba que esté en marcha y vuelve a intentarlo.';
+}
 
 if (Astro.request.method === 'POST') {
   if (!isSameOrigin(Astro.request, Astro.url)) {
@@ -50,18 +61,33 @@ if (showGithubImport) {
   }
 }
 
-try {
-  [projects, archived, tasks] = await Promise.all([
-    createApiClient().listProjects({ status: 'active' }),
-    createApiClient().listProjects({ status: 'archived' }),
-    createApiClient().listTasks(),
-  ]);
-} catch (error) {
-  console.error('No se pudieron cargar los proyectos:', error);
-  errorMessage ??= error instanceof Error && error.message.includes('API_BASE_URL')
-    ? error.message
-    : 'No hemos podido conectar con la API. Comprueba que esté en marcha y vuelve a intentarlo.';
+const apiClient = Promise.resolve().then(createApiClient);
+const [activeProjectsResult, archivedProjectsResult, tasksResult] = await Promise.allSettled([
+  apiClient.then((client) => client.listProjects({ status: 'active' })),
+  apiClient.then((client) => client.listProjects({ status: 'archived' })),
+  apiClient.then((client) => client.listTasks()),
+]);
+const loadErrors: string[] = [];
+
+if (activeProjectsResult.status === 'fulfilled') projects = activeProjectsResult.value;
+else {
+  console.error('No se pudieron cargar los proyectos activos:', activeProjectsResult.reason);
+  loadErrors.push(apiLoadErrorMessage(activeProjectsResult.reason));
 }
+
+if (archivedProjectsResult.status === 'fulfilled') archived = archivedProjectsResult.value;
+else {
+  console.error('No se pudieron cargar los proyectos archivados:', archivedProjectsResult.reason);
+  loadErrors.push(apiLoadErrorMessage(archivedProjectsResult.reason));
+}
+
+if (tasksResult.status === 'fulfilled') tasks = tasksResult.value;
+else {
+  console.error('No se pudieron cargar las tareas:', tasksResult.reason);
+  loadErrors.push(apiLoadErrorMessage(tasksResult.reason));
+}
+
+if (loadErrors.length > 0) errorMessage ??= [...new Set(loadErrors)].join(' ');
 
 const visibleProjects = showArchived ? archived : projects;
 const taskSummariesByProject = new Map<string, { total: number; completed: number; blocked: number; overdue: number }>();
