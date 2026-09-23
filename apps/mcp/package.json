@@ -9,7 +9,7 @@
     "build": "tsc --project tsconfig.build.json",
     "check": "tsc --noEmit --project tsconfig.json",
     "test": "tsx --test test/*.test.ts",
-    "start": "node dist/index.js",
+    "start": "tsx dist/index.js",
     "inspect": "mcp-inspector --cli --server-url http://127.0.0.1:3100/mcp --transport http --method tools/list"
   },
   "dependencies": {
