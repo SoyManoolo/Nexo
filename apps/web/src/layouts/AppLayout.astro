@@ -138,6 +138,44 @@ const { title, section } = Astro.props;
   :root[data-theme="dark"] .calendar-event { background: #294637; color: #e7eee8; }
   :root[data-theme="dark"] .calendar-event.deadline { background: #4d3729; }
   :root[data-theme="dark"] .calendar-event.both { background: #3b3049; }
+  :root[data-theme="dark"] .period,
+  :root[data-theme="dark"] .legend,
+  :root[data-theme="dark"] .empty,
+  :root[data-theme="dark"] .task small,
+  :root[data-theme="dark"] .task-link small,
+  :root[data-theme="dark"] .project small,
+  :root[data-theme="dark"] .pending-count,
+  :root[data-theme="dark"] .empty-column,
+  :root[data-theme="dark"] .weekday,
+  :root[data-theme="dark"] .calendar-day time,
+  :root[data-theme="dark"] .task-column h2,
+  :root[data-theme="dark"] .task-column h3,
+  :root[data-theme="dark"] .task-column p,
+  :root[data-theme="dark"] .tabs a,
+  :root[data-theme="dark"] .task-group h2,
+  :root[data-theme="dark"] .archive-panel p { color: var(--subtle); }
+  :root[data-theme="dark"] .view-switch,
+  :root[data-theme="dark"] .view-switch a[aria-current="page"],
+  :root[data-theme="dark"] .task-column,
+  :root[data-theme="dark"] .task-modal,
+  :root[data-theme="dark"] .project-modal { background: var(--surface); color: var(--text); }
+  :root[data-theme="dark"] .calendar-grid,
+  :root[data-theme="dark"] .weekday,
+  :root[data-theme="dark"] .calendar-day,
+  :root[data-theme="dark"] .calendar-day.outside-month,
+  :root[data-theme="dark"] .period-nav,
+  :root[data-theme="dark"] .view-switcher,
+  :root[data-theme="dark"] .view-switcher a + a,
+  :root[data-theme="dark"] .task-column,
+  :root[data-theme="dark"] .archive-panel { border-color: var(--border); }
+  :root[data-theme="dark"] .task-column { background: var(--surface-muted); }
+  :root[data-theme="dark"] .period-nav { background: var(--surface); color: var(--text); }
+  :root[data-theme="dark"] .view-switcher a { color: var(--accent-text); }
+  :root[data-theme="dark"] .view-switcher a[aria-current="page"] { color: #fff; }
+  :root[data-theme="dark"] .notice.error { border-color: #75443f; background: #332321; color: #ffc4bb; }
+  :root[data-theme="dark"] .calendar-event.deadline { color: #ffe0c9; }
+  :root[data-theme="dark"] .calendar-event.both { color: #eadbff; }
+  :root[data-theme="dark"] .task-action { border-color: var(--border); color: var(--accent-text); }
   @media (max-width: 720px) {
     .app-shell, .app-shell.is-collapsed { display: block; }
     .sidebar { padding: 0.8rem 1rem; gap: 0.4rem; border-right: 0; border-bottom: 1px solid #dce2da; }

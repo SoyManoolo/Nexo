@@ -181,6 +181,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
                 ))}
               </ul>
             ) : (
+              <div class="notice error move-error" id="move-error" role="alert" tabindex="-1" hidden></div>
               <div class="task-board" aria-label="Tareas por estado">
                 {taskStatuses.map(({ value, label }) => {
                   const columnTasks = tasks.filter((task) => task.status === value);
@@ -308,6 +309,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
 
   let draggedTask: HTMLElement | null = null;
   let pendingBlockedTaskId: string | null = null;
+  const moveError = document.querySelector<HTMLElement>('#move-error');
 
   async function moveTask(taskId: string, targetStatus: string, blockedReason = ''): Promise<void> {
     const form = new FormData();
@@ -315,8 +317,22 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
     form.set('taskId', taskId);
     form.set('targetStatus', targetStatus);
     form.set('blockedReason', blockedReason);
-    const response = await fetch(window.location.pathname, { method: 'POST', body: form });
-    if (response.redirected) window.location.assign(response.url);
+    try {
+      const response = await fetch(window.location.pathname, { method: 'POST', body: form });
+      if (response.redirected) {
+        window.location.assign(response.url);
+        return;
+      }
+      throw new Error(`El servidor respondió con ${response.status}.`);
+    } catch (error) {
+      console.error('No se pudo mover la tarea:', error);
+      if (targetStatus === 'blocked') closeBlockedReasonModal();
+      if (moveError) {
+        moveError.textContent = 'No se pudo mover la tarea. Comprueba la conexión e inténtalo de nuevo.';
+        moveError.hidden = false;
+        moveError.focus();
+      }
+    }
   }
 
   function closeBlockedReasonModal(): void {
