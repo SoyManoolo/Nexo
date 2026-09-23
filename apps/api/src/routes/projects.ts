@@ -4,8 +4,10 @@ import {
   ListProjectsQuerySchema,
   ProjectIdParamsSchema,
   UpdateProjectInputSchema,
+  ImportGithubProjectInputSchema,
 } from '@nexo/contracts';
 import { ProjectService } from '../services/project.service.js';
+import { getGithubRepository, listGithubCommits, parseGithubRepository } from '../services/github.service.js';
 
 export function createProjectsRoute(projectService = new ProjectService()): Hono {
   const projectsRoute = new Hono();
@@ -43,6 +45,19 @@ export function createProjectsRoute(projectService = new ProjectService()): Hono
     return context.json(projects);
   });
 
+  projectsRoute.post('/import-github', async (context) => {
+    let body: unknown;
+    try { body = await context.req.json(); } catch {
+      return context.json({ error: 'validation_error', message: 'Request body must be valid JSON' }, 400);
+    }
+    const input = ImportGithubProjectInputSchema.safeParse(body);
+    if (!input.success) return context.json({ error: 'validation_error', message: 'Introduce una URL de repositorio válida' }, 400);
+    const repository = parseGithubRepository(input.data.repositoryUrl);
+    const metadata = await getGithubRepository(repository);
+    const project = await projectService.create({ name: metadata.name, description: metadata.description, githubRepository: repository });
+    return context.json(project, 201);
+  });
+
   projectsRoute.get('/:id', async (context) => {
     const params = ProjectIdParamsSchema.safeParse(context.req.param());
 
@@ -52,6 +67,14 @@ export function createProjectsRoute(projectService = new ProjectService()): Hono
 
     const project = await projectService.get(params.data.id);
     return context.json(project);
+  });
+
+  projectsRoute.get('/:id/commits', async (context) => {
+    const params = ProjectIdParamsSchema.safeParse(context.req.param());
+    if (!params.success) return context.json({ error: 'validation_error', message: 'Invalid project ID' }, 400);
+    const project = await projectService.get(params.data.id);
+    if (!project.githubRepository) return context.json({ error: 'not_found', message: 'El proyecto no está conectado a GitHub' }, 404);
+    return context.json(await listGithubCommits(project.githubRepository));
   });
 
   projectsRoute.patch('/:id', async (context) => {

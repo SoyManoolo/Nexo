@@ -1,7 +1,9 @@
 import {
   CreateProjectInputSchema, CreateTaskInputSchema, HealthResponseSchema, ListProjectsQuerySchema,
+  GithubCommitSchema, GithubIntegrationStatusSchema, ImportGithubProjectInputSchema,
   ListTasksQuerySchema, ProjectSchema, TaskSchema, UpdateProjectInputSchema, UpdateTaskInputSchema,
   type CreateProjectInput, type CreateTaskInput, type HealthResponse, type ListProjectsQuery,
+  type GithubCommit, type GithubIntegrationStatus, type ImportGithubProjectInput,
   type ListTasksQuery, type Project, type Task, type UpdateProjectInput, type UpdateTaskInput,
 } from '@nexo/contracts';
 import { z, type ZodType } from 'zod';
@@ -66,6 +68,11 @@ export class NexoApiClient {
   async updateProject(id: string, input: UpdateProjectInput): Promise<Project> { return this.request(`/projects/${encodeURIComponent(id)}`, { method: 'PATCH', body: UpdateProjectInputSchema.parse(input) }, ProjectSchema); }
   async archiveProject(id: string): Promise<Project> { return this.request(`/projects/${encodeURIComponent(id)}/archive`, { method: 'POST' }, ProjectSchema); }
   async deleteProject(id: string): Promise<void> { return this.requestEmpty(`/projects/${encodeURIComponent(id)}`, 'DELETE'); }
+  async importGithubProject(input: ImportGithubProjectInput): Promise<Project> { return this.request('/projects/import-github', { method: 'POST', body: ImportGithubProjectInputSchema.parse(input) }, ProjectSchema); }
+  async listGithubCommits(id: string): Promise<GithubCommit[]> { return this.request(`/projects/${encodeURIComponent(id)}/commits`, { method: 'GET' }, z.array(GithubCommitSchema)); }
+  async getGithubIntegrationStatus(): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'GET' }, GithubIntegrationStatusSchema); }
+  async saveGithubToken(token: string): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'PUT', body: { token } }, GithubIntegrationStatusSchema); }
+  async removeGithubToken(): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'DELETE' }, GithubIntegrationStatusSchema); }
   async createTask(input: CreateTaskInput): Promise<Task> { return this.request('/tasks', { method: 'POST', body: CreateTaskInputSchema.parse(input) }, TaskSchema); }
   async listTasks(filters: ListTasksQuery = {}): Promise<Task[]> { return this.request('/tasks', { method: 'GET', query: ListTasksQuerySchema.parse(filters) }, z.array(TaskSchema)); }
   async getTask(id: string): Promise<Task> { return this.request(`/tasks/${encodeURIComponent(id)}`, { method: 'GET' }, TaskSchema); }

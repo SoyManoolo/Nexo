@@ -10,6 +10,8 @@ import type { Project, Task } from '@nexo/contracts';
 const id = Astro.params.id ?? '';
 let project: Project | null = null;
 let tasks: Task[] = [];
+let commits: Awaited<ReturnType<ReturnType<typeof createApiClient>['listGithubCommits']>> = [];
+let githubError: string | null = null;
 let errorMessage: string | null = null;
 let submittedForm: FormData | null = null;
 let notFound = false;
@@ -53,6 +55,7 @@ if (Astro.request.method === 'POST') {
         name: String(form.get('name') ?? ''),
         description: String(form.get('description') ?? '') || null,
         color: String(form.get('color') ?? '') || null,
+        githubRepository: String(form.get('githubRepository') ?? '') || null,
       });
     } else if (intent === 'archive') {
       await api.archiveProject(id);
@@ -118,6 +121,13 @@ if (project) {
     console.error('No se pudieron cargar las tareas del proyecto:', error);
     errorMessage ??= 'El proyecto está disponible, pero no se pudieron cargar sus tareas.';
   }
+  if (project.githubRepository) {
+    try { commits = await createApiClient().listGithubCommits(id); }
+    catch (error) {
+      console.error('No se pudieron cargar los commits de GitHub:', error);
+      githubError = 'No se pudieron cargar los commits. Revisa la conexión de GitHub en Ajustes.';
+    }
+  }
 }
 
 const updateForm = submittedForm?.get('intent') === 'update' ? submittedForm : null;
@@ -143,6 +153,14 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
           </div>
         </header>
         {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
+        <section class="github-panel card" aria-labelledby="github-commits-heading">
+          <div class="github-panel-heading"><div><p class="eyebrow">Repositorio vinculado</p><h2 id="github-commits-heading">{project.githubRepository ?? 'Conecta un repositorio de GitHub'}</h2></div>
+            {project.githubRepository && <a class="button secondary" href={`https://github.com/${project.githubRepository}`} target="_blank" rel="noreferrer">Abrir en GitHub ↗</a>}
+          </div>
+          {!project.githubRepository ? <p>Vincula un repositorio desde «Detalles del proyecto» para ver sus commits y mantener aquí las tareas relacionadas.</p> : githubError ? <p class="github-error">{githubError} <a href="/settings">Abrir Ajustes</a></p> : commits.length === 0 ? <p class="muted">No hay commits recientes.</p> : (
+            <ol class="commit-list">{commits.map((commit) => <li><a href={commit.url} target="_blank" rel="noreferrer"><strong>{commit.message}</strong><code>{commit.sha.slice(0, 7)}</code></a><small>{commit.author ?? 'Autor desconocido'} · {new Date(commit.committedAt).toLocaleString('es-ES')}</small></li>)}</ol>
+          )}
+        </section>
         <section aria-labelledby="tasks-heading">
             <div class="tasks-header">
               <h2 id="tasks-heading">Tareas <span class="muted">({tasks.length})</span></h2>
@@ -239,6 +257,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               <label class="field">Nombre <input name="name" required maxlength="120" value={formValue(updateForm, 'name', project.name)} /></label>
               <label class="field">Descripción <textarea name="description" maxlength="2000">{formValue(updateForm, 'description', project.description ?? '')}</textarea></label>
               <label class="field">Color <input name="color" type="color" value={formValue(updateForm, 'color', project.color ?? '#4d8564')} /></label>
+              <label class="field">Repositorio de GitHub <input name="githubRepository" type="url" maxlength="500" placeholder="https://github.com/organizacion/repositorio" value={formValue(updateForm, 'githubRepository', project.githubRepository ? `https://github.com/${project.githubRepository}` : '')} /></label>
               <button class="button secondary" type="submit">Guardar cambios</button>
             </div>
           </form>
@@ -385,6 +404,19 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
   h2 { margin: 0 0 1rem; font-size: 1.2rem; }
   .tasks-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .github-panel { margin-bottom: 2rem; }
+  .github-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .github-panel-heading .eyebrow { margin-bottom: 0.35rem; }
+  .github-panel-heading h2 { margin: 0; overflow-wrap: anywhere; }
+  .github-panel > p { color: var(--subtle); line-height: 1.5; }
+  .commit-list { display: grid; gap: 0.85rem; padding: 0; margin: 1rem 0 0; list-style: none; }
+  .commit-list li { display: grid; gap: 0.3rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+  .commit-list li:last-child { padding-bottom: 0; border-bottom: 0; }
+  .commit-list a { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
+  .commit-list a:hover strong { color: var(--accent-text); }
+  .commit-list code { flex: none; color: var(--subtle); }
+  .commit-list small { color: var(--subtle); }
+  .github-error { color: #9b382c !important; }
   .project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.65rem; }
   .view-switcher { display: inline-flex; overflow: hidden; border: 1px solid #b9c8bb; border-radius: 0.5rem; }
   .view-switcher a { padding: 0.38rem 0.65rem; color: #316d4b; font-size: 0.88rem; font-weight: 700; text-decoration: none; }

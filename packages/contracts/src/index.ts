@@ -94,6 +94,7 @@ export const CreateProjectInputSchema = z
     name: ProjectNameInputSchema,
     description: ProjectDescriptionInputSchema.nullable().optional(),
     color: ProjectColorInputSchema.nullable().optional(),
+    githubRepository: z.string().trim().max(500).nullable().optional(),
   })
   .strict();
 
@@ -105,6 +106,7 @@ export const UpdateProjectInputSchema = z
     name: ProjectNameInputSchema.optional(),
     description: ProjectDescriptionInputSchema.nullable().optional(),
     color: ProjectColorInputSchema.nullable().optional(),
+    githubRepository: z.string().trim().max(500).nullable().optional(),
   })
   .strict()
   .refine((input) => Object.keys(input).length > 0, {
@@ -209,11 +211,30 @@ export const ProjectSchema = z.object({
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/)
     .nullable(),
+  githubRepository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/).nullable().default(null),
   status: ProjectStatusSchema,
   archivedAt: TimestampSchema.nullable(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 });
+
+export const ImportGithubProjectInputSchema = z.object({
+  repositoryUrl: z.string().trim().url().max(500),
+}).strict();
+export type ImportGithubProjectInput = z.infer<typeof ImportGithubProjectInputSchema>;
+
+export const GithubCommitSchema = z.object({
+  sha: z.string(),
+  message: z.string(),
+  url: z.string().url(),
+  author: z.string().nullable(),
+  committedAt: TimestampSchema,
+});
+
+export const GithubIntegrationStatusSchema = z.object({ connected: z.boolean() });
+
+export type GithubCommit = z.infer<typeof GithubCommitSchema>;
+export type GithubIntegrationStatus = z.infer<typeof GithubIntegrationStatusSchema>;
 
 export type Project = z.infer<typeof ProjectSchema>;
 

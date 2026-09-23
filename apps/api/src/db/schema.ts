@@ -8,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -29,6 +30,7 @@ export const projects = pgTable(
     name: varchar('name', { length: 120 }).notNull(),
     description: text('description'),
     color: varchar('color', { length: 7 }),
+    githubRepository: varchar('github_repository', { length: 200 }),
     status: projectStatus('status').notNull().default('active'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -36,6 +38,7 @@ export const projects = pgTable(
   },
   (table) => [
     index('projects_status_idx').on(table.status),
+    uniqueIndex('projects_github_repository_idx').on(table.githubRepository).where(sql`${table.githubRepository} IS NOT NULL`),
     check('projects_name_not_blank', sql`length(btrim(${table.name})) > 0`),
     check(
       'projects_color_hex',
@@ -50,6 +53,12 @@ export const projects = pgTable(
     ),
   ],
 );
+
+export const integrationSettings = pgTable('integration_settings', {
+  key: varchar('key', { length: 100 }).primaryKey(),
+  encryptedValue: text('encrypted_value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const tasks = pgTable(
   'tasks',

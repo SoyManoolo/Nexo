@@ -1,10 +1,69 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
+import { createApiClient } from '../lib/api';
+import { formError } from '../lib/form-error';
+import { isSameOrigin } from '../lib/security';
+
+let connected = false;
+let errorMessage: string | null = null;
+let successMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  if (!isSameOrigin(Astro.request, Astro.url)) return new Response('Origen no permitido', { status: 403 });
+  const form = await Astro.request.formData();
+  try {
+    const api = createApiClient();
+    if (form.get('intent') === 'connect-github') {
+      await api.saveGithubToken(String(form.get('token') ?? ''));
+      successMessage = 'GitHub está conectado. El token se guarda cifrado.';
+    } else if (form.get('intent') === 'disconnect-github') {
+      await api.removeGithubToken();
+      successMessage = 'Se ha eliminado el token de GitHub.';
+    }
+  } catch (error) {
+    console.error('No se pudo guardar la conexión de GitHub:', error);
+    const failure = formError(error, 'No se pudo actualizar la conexión de GitHub.');
+    errorMessage = failure.message;
+    Astro.response.status = failure.status;
+  }
+}
+
+try {
+  connected = (await createApiClient().getGithubIntegrationStatus()).connected;
+} catch (error) {
+  console.error('No se pudo consultar la conexión de GitHub:', error);
+  errorMessage ??= 'No se pudo consultar la conexión. Comprueba que la API esté disponible.';
+}
 ---
 
 <AppLayout title="Ajustes · Nexo" section="settings">
   <main class="page">
-    <header class="page-header"><div><p class="eyebrow">Preferencias</p><h1>Ajustes</h1><p class="page-intro">Este espacio estará disponible cuando añadamos preferencias personales.</p></div></header>
-    <div class="notice"><h2>Por ahora, todo listo</h2><p>Ya puedes gestionar tus proyectos y tareas desde las otras secciones.</p></div>
+    <header class="page-header"><div><p class="eyebrow">Preferencias</p><h1>Ajustes</h1><p class="page-intro">Configura las conexiones de Nexo.</p></div></header>
+    {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
+    {successMessage && <div class="notice success" role="status"><p>{successMessage}</p></div>}
+    <section class="card integration" aria-labelledby="github-heading">
+      <div class="integration-heading"><div><p class="eyebrow">Integraciones</p><h2 id="github-heading">GitHub</h2></div><span class:list={['connection-status', connected ? 'is-connected' : '']}>{connected ? 'Conectado' : 'Sin conectar'}</span></div>
+      <p>Conecta un token de acceso personal para importar repositorios y consultar commits, incluidos los repositorios privados. Crea un token con permiso de lectura de repositorios.</p>
+      <form method="post" class="form-grid">
+        <input type="hidden" name="intent" value="connect-github" />
+        <label class="field">Token de acceso personal <input name="token" type="password" required maxlength="500" autocomplete="new-password" placeholder={connected ? 'Pega un token para reemplazar el actual' : 'ghp_…'} /></label>
+        <button class="button" type="submit">{connected ? 'Actualizar conexión' : 'Conectar GitHub'}</button>
+      </form>
+      {connected && <form method="post" class="disconnect-form"><input type="hidden" name="intent" value="disconnect-github" /><button class="button secondary" type="submit">Desconectar</button></form>}
+      <p class="help">El token se cifra en la base de datos con la clave <code>GITHUB_TOKEN_ENCRYPTION_KEY</code> configurada en el servidor de la API. Nexo solo lo usa para leer repositorios y commits.</p>
+    </section>
   </main>
 </AppLayout>
+
+<style>
+  .integration { max-width: 48rem; }
+  .integration-heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  .integration-heading h2 { margin: 0; }
+  .integration > p { color: var(--subtle); line-height: 1.6; }
+  .connection-status { border-radius: 2rem; padding: 0.35rem 0.7rem; background: var(--surface-muted); color: var(--subtle); font-size: 0.85rem; font-weight: 700; }
+  .connection-status.is-connected { background: var(--accent-soft); color: var(--accent-text); }
+  .disconnect-form { margin-top: 0.7rem; }
+  .help { margin-top: 1.2rem; font-size: 0.86rem; }
+  .notice.success { margin-bottom: 1rem; border-color: #8eb99a; background: #eff8f0; color: #245b3b; }
+  :root[data-theme="dark"] .notice.success { background: #203828; color: #bde7c7; }
+</style>

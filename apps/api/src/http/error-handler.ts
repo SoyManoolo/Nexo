@@ -1,10 +1,12 @@
 import type { Context } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { ProjectNotFoundError, ProjectValidationError } from '../services/project.service.js';
 import {
   TaskNotFoundError,
   TaskProjectNotFoundError,
   TaskValidationError,
 } from '../services/task.service.js';
+import { GithubIntegrationError } from '../services/github.service.js';
 
 type DatabaseError = Error & { code?: string };
 
@@ -13,6 +15,9 @@ function isDatabaseError(error: unknown): error is DatabaseError {
 }
 
 export function handleApiError(error: Error, context: Context): Response {
+  if (error instanceof GithubIntegrationError) {
+    return context.json({ error: 'github_error', message: error.message }, error.status as ContentfulStatusCode);
+  }
   if (error instanceof ProjectValidationError) {
     return context.json({ error: 'validation_error', message: error.message }, 400);
   }

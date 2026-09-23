@@ -9,6 +9,20 @@ import {
 const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 2_000;
 const COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const GITHUB_REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
+export function normalizeGithubRepository(repository: string | null | undefined): string | null | undefined {
+  if (repository === undefined || repository === null || repository === '') return repository ?? null;
+  const value = repository.trim();
+  let canonical = value;
+  if (value.startsWith('https://github.com/')) {
+    canonical = value.slice('https://github.com/'.length).replace(/\/$/, '').replace(/\.git$/, '');
+  }
+  if (!GITHUB_REPOSITORY_PATTERN.test(canonical)) {
+    throw new ProjectValidationError('Introduce una URL válida de un repositorio GitHub');
+  }
+  return canonical;
+}
 
 export class ProjectNotFoundError extends Error {
   constructor(id: string) {
@@ -74,6 +88,7 @@ export class ProjectService {
       name: normalizeName(input.name),
       description: normalizeDescription(input.description),
       color: normalizeColor(input.color),
+      githubRepository: normalizeGithubRepository(input.githubRepository),
     });
   }
 
@@ -108,6 +123,10 @@ export class ProjectService {
 
     if (input.color !== undefined) {
       normalizedInput.color = normalizeColor(input.color);
+    }
+
+    if (input.githubRepository !== undefined) {
+      normalizedInput.githubRepository = normalizeGithubRepository(input.githubRepository);
     }
 
     if (Object.keys(normalizedInput).length === 0) {

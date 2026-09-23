@@ -7,12 +7,14 @@ export type CreateProjectInput = {
   name: string;
   description?: string | null;
   color?: string | null;
+  githubRepository?: string | null;
 };
 
 export type UpdateProjectInput = {
   name?: string;
   description?: string | null;
   color?: string | null;
+  githubRepository?: string | null;
 };
 
 export type ListProjectsOptions = {
@@ -25,6 +27,7 @@ function toProject(row: ProjectRow): Project {
     name: row.name,
     description: row.description,
     color: row.color,
+    githubRepository: row.githubRepository,
     status: row.status,
     archivedAt: row.archivedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
