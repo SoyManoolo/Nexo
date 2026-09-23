@@ -98,6 +98,23 @@ export class ProjectRepository {
     return project ? toProject(project) : null;
   }
 
+  async restore(id: string): Promise<Project | null> {
+    const currentProject = await this.findById(id);
+
+    if (!currentProject || currentProject.status === 'active') {
+      return currentProject;
+    }
+
+    const now = new Date();
+    const [project] = await db
+      .update(projects)
+      .set({ status: 'active', archivedAt: null, updatedAt: now })
+      .where(eq(projects.id, id))
+      .returning();
+
+    return project ? toProject(project) : null;
+  }
+
   async delete(id: string): Promise<boolean> {
     const deleted = await db.delete(projects).where(eq(projects.id, id)).returning({ id: projects.id });
     return deleted.length > 0;

@@ -5,12 +5,16 @@ import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
 import { NexoApiNotFoundError } from '@nexo/api-client';
-import { TaskStatusLabels, type Project, type Task } from '@nexo/contracts';
+import { TaskStatusLabels, type GithubCommit, type Project, type ProjectActivity, type Task } from '@nexo/contracts';
 
 const id = Astro.params.id ?? '';
 let project: Project | null = null;
 let tasks: Task[] = [];
-let commits: Awaited<ReturnType<ReturnType<typeof createApiClient>['listGithubCommits']>> = [];
+let allTasks: Task[] = [];
+let tasksLoaded = false;
+let activities: ProjectActivity[] = [];
+let commits: GithubCommit[] = [];
+let activityError: string | null = null;
 let githubError: string | null = null;
 let errorMessage: string | null = null;
 let submittedForm: FormData | null = null;
@@ -60,6 +64,9 @@ if (Astro.request.method === 'POST') {
     } else if (intent === 'archive') {
       await api.archiveProject(id);
       return Astro.redirect('/projects?status=archived', 303);
+    } else if (intent === 'restore') {
+      await api.restoreProject(id);
+      return Astro.redirect(`/projects/${id}`, 303);
     } else if (intent === 'delete') {
       await api.deleteProject(id);
       return Astro.redirect('/projects', 303);
@@ -116,10 +123,20 @@ try {
 
 if (project) {
   try {
-    tasks = await createApiClient().listTasks({ projectId: id, status: statusFilter, priority: priorityFilter });
+    allTasks = await createApiClient().listTasks({ projectId: id });
+    tasksLoaded = true;
+    tasks = allTasks.filter((task) =>
+      (!statusFilter || task.status === statusFilter) &&
+      (!priorityFilter || task.priority === priorityFilter),
+    );
   } catch (error) {
     console.error('No se pudieron cargar las tareas del proyecto:', error);
     errorMessage ??= 'El proyecto está disponible, pero no se pudieron cargar sus tareas.';
+  }
+  try { activities = await createApiClient().listProjectActivity(id); }
+  catch (error) {
+    console.error('No se pudo cargar la actividad del proyecto:', error);
+    activityError = 'No se pudo cargar la actividad reciente.';
   }
   if (project.githubRepository) {
     try { commits = await createApiClient().listGithubCommits(id); }
@@ -127,6 +144,36 @@ if (project) {
       console.error('No se pudieron cargar los commits de GitHub:', error);
       githubError = 'No se pudieron cargar los commits. Revisa la conexión de GitHub en Ajustes.';
     }
+  }
+}
+
+const completedTasks = allTasks.filter((task) => task.status === 'done').length;
+const blockedTasks = allTasks.filter((task) => task.status === 'blocked').length;
+const overdueTasks = allTasks.filter((task) =>
+  task.status !== 'done' && task.dueAt !== null && Date.parse(task.dueAt) < Date.now(),
+).length;
+const progressPercent = allTasks.length ? Math.round((completedTasks / allTasks.length) * 100) : 0;
+const nextTask = allTasks.find((task) => task.status !== 'done' && task.status !== 'blocked') ?? null;
+
+type TimelineItem =
+  | { kind: 'activity'; id: string; at: string; activity: ProjectActivity }
+  | { kind: 'commit'; id: string; at: string; commit: GithubCommit };
+
+const timeline: TimelineItem[] = [
+  ...activities.map((activity): TimelineItem => ({ kind: 'activity', id: activity.id, at: activity.createdAt, activity })),
+  ...commits.map((commit): TimelineItem => ({ kind: 'commit', id: commit.sha, at: commit.committedAt, commit })),
+].sort((left, right) => Date.parse(right.at) - Date.parse(left.at)).slice(0, 20);
+
+function activityLabel(activity: ProjectActivity): string {
+  const title = activity.taskTitle ? `«${activity.taskTitle}»` : 'la tarea';
+  switch (activity.eventType) {
+    case 'project_created': return 'Proyecto creado';
+    case 'project_archived': return 'Proyecto archivado';
+    case 'project_restored': return 'Proyecto restaurado';
+    case 'task_created': return `Tarea añadida: ${title}`;
+    case 'task_added': return `Tarea añadida al proyecto: ${title}`;
+    case 'task_status_changed':
+      return `Estado cambiado: ${title}`;
   }
 }
 
@@ -149,10 +196,22 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
           </div>
           <div class="project-actions">
             <button class="button secondary" type="button" id="open-project-modal">Detalles del proyecto</button>
+            {project.status === 'archived' && <form method="post"><input type="hidden" name="intent" value="restore" /><button class="button" type="submit">Restaurar proyecto</button></form>}
             {project.status === 'active' && <button class="button" type="button" id="open-task-modal">Añadir tarea</button>}
           </div>
         </header>
         {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
+        {tasksLoaded && <section class="project-summary" aria-labelledby="project-summary-heading">
+          <div class="summary-heading"><div><p class="eyebrow">Estado del proyecto</p><h2 id="project-summary-heading">Resumen</h2></div><strong>{progressPercent}% completado</strong></div>
+          <progress value={progressPercent} max="100" aria-label={`${progressPercent}% de las tareas completadas`}>{progressPercent}%</progress>
+          <div class="summary-stats">
+            <article><strong>{allTasks.length - completedTasks}</strong><span>Abiertas</span></article>
+            <article><strong>{completedTasks}</strong><span>Completadas</span></article>
+            <article><strong>{blockedTasks}</strong><span>Bloqueadas</span></article>
+            <article class:list={{ 'has-overdue': overdueTasks > 0 }}><strong>{overdueTasks}</strong><span>Vencidas</span></article>
+          </div>
+          {nextTask ? <p class="next-task">Siguiente tarea: <a href={`/tasks/${nextTask.id}`}>{nextTask.title}</a></p> : <p class="next-task">{allTasks.length ? 'No quedan tareas abiertas.' : 'Añade tareas para empezar a seguir el avance.'}</p>}
+        </section>}
         <section aria-labelledby="tasks-heading">
             <div class="tasks-header">
               <h2 id="tasks-heading">Tareas <span class="muted">({tasks.length})</span></h2>
@@ -238,16 +297,25 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               </>
             )}
         </section>
-        <section class="github-panel card" aria-labelledby="github-commits-heading">
-          <div class="github-panel-heading"><div><p class="eyebrow">Repositorio vinculado</p><h2 id="github-commits-heading">{project.githubRepository ?? 'Conecta un repositorio de GitHub'}</h2></div>
-            {project.githubRepository && <a class="button secondary" href={`https://github.com/${project.githubRepository}`} target="_blank" rel="noreferrer">Abrir en GitHub ↗</a>}
+        <section class="activity-panel card" aria-labelledby="activity-heading">
+          <div class="activity-heading"><div><p class="eyebrow">Seguimiento</p><h2 id="activity-heading">Actividad reciente</h2></div>
+            {project.githubRepository && <a class="button secondary" href={`https://github.com/${project.githubRepository}`} target="_blank" rel="noreferrer">{project.githubRepository} ↗</a>}
           </div>
-          {!project.githubRepository ? <p>Vincula un repositorio desde «Detalles del proyecto» para ver sus commits y mantener aquí las tareas relacionadas.</p> : githubError ? <p class="github-error">{githubError} <a href="/settings">Abrir Ajustes</a></p> : commits.length === 0 ? <p class="muted">No hay commits recientes.</p> : (
-            <>
-              <ol class="commit-list">{commits.map((commit, index) => <li hidden={index >= 5} data-commit-item><a href={commit.url} target="_blank" rel="noreferrer"><strong>{commit.message}</strong><code>{commit.sha.slice(0, 7)}</code></a><small>{commit.author ?? 'Autor desconocido'} · {new Date(commit.committedAt).toLocaleString('es-ES')}</small></li>)}</ol>
-              {commits.length > 5 && <button class="button secondary commit-toggle" type="button" data-commit-toggle aria-expanded="false">Ver más commits</button>}
-            </>
+          {activityError && <p class="github-error" role="alert">{activityError}</p>}
+          {githubError && <p class="github-error" role="alert">{githubError} <a href="/settings">Revisar GitHub en Ajustes</a></p>}
+          {!activityError && !githubError && timeline.length === 0 ? <p class="muted">Todavía no hay actividad en este proyecto.</p> : (
+            <ol class="activity-list">
+              {timeline.map((item) => (
+                <li>
+                  <time datetime={item.at}>{new Date(item.at).toLocaleString('es-ES')}</time>
+                  {item.kind === 'commit' ? <div><strong>Commit: <a href={item.commit.url} target="_blank" rel="noreferrer">{item.commit.message}</a></strong><small>{item.commit.author ?? 'Autor desconocido'} · {item.commit.sha.slice(0, 7)}</small></div> : (
+                    <div><strong>{activityLabel(item.activity)}</strong>{item.activity.fromStatus && item.activity.toStatus && <small>{TaskStatusLabels[item.activity.fromStatus]} → {TaskStatusLabels[item.activity.toStatus]}</small>}</div>
+                  )}
+                </li>
+              ))}
+            </ol>
           )}
+          {!project.githubRepository && <p class="muted activity-hint">Vincula GitHub desde «Detalles del proyecto» para incluir commits en esta cronología.</p>}
         </section>
         <dialog class="task-modal project-modal" id="project-modal" aria-labelledby="project-modal-title" open={Boolean(updateForm)}>
           <form method="post" class="quick-add">
@@ -302,15 +370,6 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   const filterForm = document.querySelector<HTMLFormElement>('[data-filter-form]');
   filterForm?.addEventListener('change', (event) => {
     if (event.target instanceof HTMLSelectElement) filterForm.requestSubmit();
-  });
-
-  const commitToggle = document.querySelector<HTMLButtonElement>('[data-commit-toggle]');
-  const commitItems = document.querySelectorAll<HTMLElement>('[data-commit-item]');
-  commitToggle?.addEventListener('click', () => {
-    const expanded = commitToggle.getAttribute('aria-expanded') === 'true';
-    commitItems.forEach((item, index) => { item.hidden = expanded && index >= 5; });
-    commitToggle.setAttribute('aria-expanded', String(!expanded));
-    commitToggle.textContent = expanded ? 'Ver más commits' : 'Ver menos commits';
   });
 
   const taskModal = document.querySelector<HTMLDialogElement>('#task-modal');
@@ -416,19 +475,26 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
   h2 { margin: 0 0 1rem; font-size: 1.2rem; }
   .tasks-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-  .github-panel { margin-bottom: 2rem; }
-  .github-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-  .github-panel-heading .eyebrow { margin-bottom: 0.35rem; }
-  .github-panel-heading h2 { margin: 0; overflow-wrap: anywhere; }
-  .github-panel > p { color: var(--subtle); line-height: 1.5; }
-  .commit-list { display: grid; gap: 0.85rem; padding: 0; margin: 1rem 0 0; list-style: none; }
-  .commit-list li { display: grid; gap: 0.3rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
-  .commit-list li:last-child { padding-bottom: 0; border-bottom: 0; }
-  .commit-list a { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
-  .commit-list a:hover strong { color: var(--accent-text); }
-  .commit-list code { flex: none; color: var(--subtle); }
-  .commit-list small { color: var(--subtle); }
-  .commit-toggle { margin-top: 1rem; }
+  .project-summary { margin: 0 0 1.5rem; border: 1px solid var(--border); border-radius: 0.8rem; padding: 1rem; background: var(--surface); }
+  .summary-heading, .activity-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .summary-heading .eyebrow, .activity-heading .eyebrow { margin: 0 0 0.3rem; }
+  .summary-heading h2, .activity-heading h2 { margin: 0; }
+  .summary-heading > strong { color: var(--accent-text); }
+  .project-summary progress { display: block; width: 100%; height: 0.7rem; margin: 1rem 0; accent-color: var(--accent-text); }
+  .summary-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem; }
+  .summary-stats article { display: grid; gap: 0.15rem; border-radius: 0.55rem; padding: 0.75rem; background: var(--surface-muted); }
+  .summary-stats article strong { font-size: 1.25rem; }
+  .summary-stats article span, .activity-list time, .activity-list small { color: var(--subtle); font-size: 0.85rem; }
+  .summary-stats .has-overdue strong { color: #a83f32; }
+  .next-task { margin: 0.9rem 0 0; color: var(--subtle); }
+  .next-task a { color: var(--accent-text); font-weight: 650; }
+  .activity-panel { margin: 1.5rem 0 2rem; }
+  .activity-heading { margin-bottom: 1rem; }
+  .activity-list { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; }
+  .activity-list li { display: grid; grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr); gap: 1rem; border-top: 1px solid var(--border); padding: 0.8rem 0; }
+  .activity-list li > div { display: grid; gap: 0.2rem; }
+  .activity-list a { color: var(--accent-text); }
+  .activity-hint { margin-bottom: 0; }
   .github-error { color: #9b382c !important; }
   .project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.65rem; }
   .view-switcher { display: inline-flex; overflow: hidden; border: 1px solid #b9c8bb; border-radius: 0.5rem; }
@@ -463,5 +529,5 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .archive-panel summary { cursor: pointer; color: #9b382c; font-weight: 700; }
   .archive-panel p { color: #58665c; line-height: 1.5; }
   .delete-panel { border-top: 1px solid #dce2da; padding: 1rem 1.25rem 1.25rem; }
-  @media (max-width: 600px) { .project-actions, .tasks-header, .task-link, .filters { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } .quick-fields { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .project-actions, .tasks-header, .task-link, .filters, .summary-heading, .activity-heading { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } .quick-fields { grid-template-columns: 1fr; } .summary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-list li { grid-template-columns: 1fr; gap: 0.25rem; } }
 </style>

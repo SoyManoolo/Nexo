@@ -249,6 +249,29 @@ export const GithubRepositorySchema = z.object({
 
 export const GithubIntegrationStatusSchema = z.object({ connected: z.boolean() });
 
+export const ProjectActivityEventTypeSchema = z.enum([
+  'project_created',
+  'project_archived',
+  'project_restored',
+  'task_created',
+  'task_added',
+  'task_status_changed',
+]);
+
+export const ProjectActivitySchema = z.object({
+  id: EntityIdSchema,
+  projectId: EntityIdSchema,
+  taskId: EntityIdSchema.nullable(),
+  eventType: ProjectActivityEventTypeSchema,
+  taskTitle: z.string().nullable(),
+  fromStatus: TaskStatusSchema.nullable(),
+  toStatus: TaskStatusSchema.nullable(),
+  createdAt: TimestampSchema,
+});
+
+export type ProjectActivityEventType = z.infer<typeof ProjectActivityEventTypeSchema>;
+export type ProjectActivity = z.infer<typeof ProjectActivitySchema>;
+
 export type GithubCommit = z.infer<typeof GithubCommitSchema>;
 export type GithubRepository = z.infer<typeof GithubRepositorySchema>;
 export type GithubIntegrationStatus = z.infer<typeof GithubIntegrationStatusSchema>;

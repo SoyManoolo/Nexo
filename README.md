@@ -6,12 +6,13 @@ Nexo es un organizador personal de proyectos y tareas, pensado para mostrar con 
 
 La aplicación web y la API están implementadas y usan PostgreSQL. Actualmente se puede:
 
-- crear, editar, archivar y eliminar proyectos;
+- crear, editar, archivar, restaurar y eliminar proyectos;
 - capturar tareas en el Inbox o asignarlas a un proyecto;
 - organizar tareas por estado (Pendiente, En progreso, En revisión, Completada y Bloqueada), prioridad, fechas y anclado en inicio;
 - completar, reabrir y devolver tareas al Inbox;
 - consultar Inicio (calendario mensual o semanal, tareas ancladas y recientes), Inbox, Hoy y Proyectos;
 - importar repositorios de GitHub como proyectos, vincularlos a proyectos existentes y consultar sus commits recientes;
+- consultar el avance, las tareas abiertas, bloqueadas y vencidas de cada proyecto, y una cronología de actividad con cambios de tareas y commits de GitHub;
 - usar tema claro u oscuro y contraer la navegación lateral.
 
 El servidor MCP expone proyectos y tareas por Streamable HTTP para conectarse a Codex y Claude Code.

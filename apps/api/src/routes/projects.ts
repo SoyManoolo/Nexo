@@ -77,6 +77,12 @@ export function createProjectsRoute(projectService = new ProjectService()): Hono
     return context.json(await listGithubCommits(project.githubRepository));
   });
 
+  projectsRoute.get('/:id/activity', async (context) => {
+    const params = ProjectIdParamsSchema.safeParse(context.req.param());
+    if (!params.success) return context.json({ error: 'validation_error', message: 'Invalid project ID' }, 400);
+    return context.json(await projectService.listActivity(params.data.id));
+  });
+
   projectsRoute.patch('/:id', async (context) => {
     const params = ProjectIdParamsSchema.safeParse(context.req.param());
 
@@ -114,6 +120,12 @@ export function createProjectsRoute(projectService = new ProjectService()): Hono
 
     const project = await projectService.archive(params.data.id);
     return context.json(project);
+  });
+
+  projectsRoute.post('/:id/restore', async (context) => {
+    const params = ProjectIdParamsSchema.safeParse(context.req.param());
+    if (!params.success) return context.json({ error: 'validation_error', message: 'Invalid project ID' }, 400);
+    return context.json(await projectService.restore(params.data.id));
   });
 
   projectsRoute.delete('/:id', async (context) => {

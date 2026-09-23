@@ -139,6 +139,24 @@ Response `200`:
 }
 ```
 
+### `POST /projects/:id/restore`
+
+Restaura un proyecto archivado. La operación es idempotente y devuelve el proyecto activo.
+
+```http
+POST /projects/550e8400-e29b-41d4-a716-446655440002/restore
+```
+
+### `GET /projects/:id/activity`
+
+Devuelve hasta 30 eventos recientes del proyecto. Registra creación, archivado y restauración del
+proyecto, creación y asignación de tareas, y cambios de estado. La web combina estos eventos con
+los commits recientes de GitHub en una sola cronología.
+
+```http
+GET /projects/550e8400-e29b-41d4-a716-446655440002/activity
+```
+
 ## Tareas
 
 Las tareas pueden permanecer en el inbox (`projectId: null`) o pertenecer a un proyecto activo.

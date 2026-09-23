@@ -43,6 +43,13 @@
       "when": 1790201000000,
       "tag": "0005_task_statuses",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790202000000,
+      "tag": "0006_project_activity",
+      "breakpoints": true
     }
   ]
 }

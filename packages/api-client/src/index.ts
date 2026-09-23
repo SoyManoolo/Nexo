@@ -1,8 +1,10 @@
 import {
   CreateProjectInputSchema, CreateTaskInputSchema, HealthResponseSchema, ListProjectsQuerySchema,
+  ProjectActivitySchema,
   GithubCommitSchema, GithubIntegrationStatusSchema, GithubRepositorySchema, ImportGithubProjectInputSchema,
   ListTasksQuerySchema, ProjectSchema, TaskSchema, UpdateProjectInputSchema, UpdateTaskInputSchema,
   type CreateProjectInput, type CreateTaskInput, type HealthResponse, type ListProjectsQuery,
+  type ProjectActivity,
   type GithubCommit, type GithubIntegrationStatus, type GithubRepository, type ImportGithubProjectInput,
   type ListTasksQuery, type Project, type Task, type UpdateProjectInput, type UpdateTaskInput,
 } from '@nexo/contracts';
@@ -62,13 +64,15 @@ export class NexoApiClient {
   }
 
   async getHealth(): Promise<HealthResponse> { return this.request('/health', { method: 'GET' }, HealthResponseSchema); }
-  async createProject(input: CreateProjectInput): Promise<Project> { return this.request('/projects', { method: 'POST', body: CreateProjectInputSchema.parse(input) }, ProjectSchema); }
-  async listProjects(filters: ListProjectsQuery = {}): Promise<Project[]> { return this.request('/projects', { method: 'GET', query: ListProjectsQuerySchema.parse(filters) }, z.array(ProjectSchema)); }
-  async getProject(id: string): Promise<Project> { return this.request(`/projects/${encodeURIComponent(id)}`, { method: 'GET' }, ProjectSchema); }
-  async updateProject(id: string, input: UpdateProjectInput): Promise<Project> { return this.request(`/projects/${encodeURIComponent(id)}`, { method: 'PATCH', body: UpdateProjectInputSchema.parse(input) }, ProjectSchema); }
-  async archiveProject(id: string): Promise<Project> { return this.request(`/projects/${encodeURIComponent(id)}/archive`, { method: 'POST' }, ProjectSchema); }
+  async createProject(input: CreateProjectInput): Promise<Project> { return this.requestProject('/projects', { method: 'POST', body: CreateProjectInputSchema.parse(input) }); }
+  async listProjects(filters: ListProjectsQuery = {}): Promise<Project[]> { return this.requestProjects('/projects', { method: 'GET', query: ListProjectsQuerySchema.parse(filters) }); }
+  async getProject(id: string): Promise<Project> { return this.requestProject(`/projects/${encodeURIComponent(id)}`, { method: 'GET' }); }
+  async updateProject(id: string, input: UpdateProjectInput): Promise<Project> { return this.requestProject(`/projects/${encodeURIComponent(id)}`, { method: 'PATCH', body: UpdateProjectInputSchema.parse(input) }); }
+  async archiveProject(id: string): Promise<Project> { return this.requestProject(`/projects/${encodeURIComponent(id)}/archive`, { method: 'POST' }); }
+  async restoreProject(id: string): Promise<Project> { return this.requestProject(`/projects/${encodeURIComponent(id)}/restore`, { method: 'POST' }); }
+  async listProjectActivity(id: string): Promise<ProjectActivity[]> { return this.request(`/projects/${encodeURIComponent(id)}/activity`, { method: 'GET' }, z.array(ProjectActivitySchema)); }
   async deleteProject(id: string): Promise<void> { return this.requestEmpty(`/projects/${encodeURIComponent(id)}`, 'DELETE'); }
-  async importGithubProject(input: ImportGithubProjectInput): Promise<Project> { return this.request('/projects/import-github', { method: 'POST', body: ImportGithubProjectInputSchema.parse(input) }, ProjectSchema); }
+  async importGithubProject(input: ImportGithubProjectInput): Promise<Project> { return this.requestProject('/projects/import-github', { method: 'POST', body: ImportGithubProjectInputSchema.parse(input) }); }
   async listGithubCommits(id: string): Promise<GithubCommit[]> { return this.request(`/projects/${encodeURIComponent(id)}/commits`, { method: 'GET' }, z.array(GithubCommitSchema)); }
   async listGithubRepositories(): Promise<GithubRepository[]> { return this.request('/github/repositories', { method: 'GET' }, z.array(GithubRepositorySchema)); }
   async getGithubIntegrationStatus(): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'GET' }, GithubIntegrationStatusSchema); }
@@ -83,6 +87,16 @@ export class NexoApiClient {
   async moveTaskToInbox(id: string): Promise<Task> { return this.taskAction(id, 'move-to-inbox'); }
 
   private async taskAction(id: string, action: string): Promise<Task> { return this.request(`/tasks/${encodeURIComponent(id)}/${action}`, { method: 'POST' }, TaskSchema); }
+
+  private async requestProject(path: string, options: { method: string; body?: unknown; query?: Record<string, string | undefined> }): Promise<Project> {
+    const project = await this.request(path, options, ProjectSchema);
+    return { ...project, githubRepository: project.githubRepository ?? null };
+  }
+
+  private async requestProjects(path: string, options: { method: string; body?: unknown; query?: Record<string, string | undefined> }): Promise<Project[]> {
+    const projects = await this.request(path, options, z.array(ProjectSchema));
+    return projects.map((project) => ({ ...project, githubRepository: project.githubRepository ?? null }));
+  }
 
   private async requestEmpty(path: string, method: string): Promise<void> {
     const response = await this.fetchImplementation(new URL(path, this.baseUrl), { method, headers: this.headers });

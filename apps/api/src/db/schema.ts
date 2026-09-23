@@ -103,7 +103,23 @@ export const tasks = pgTable(
   ],
 );
 
+export const projectActivities = pgTable(
+  'project_activities',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+    eventType: varchar('event_type', { length: 40 }).notNull(),
+    taskTitle: varchar('task_title', { length: 200 }),
+    fromStatus: varchar('from_status', { length: 20 }),
+    toStatus: varchar('to_status', { length: 20 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('project_activities_project_created_idx').on(table.projectId, table.createdAt)],
+);
+
 export type ProjectRow = typeof projects.$inferSelect;
 export type NewProjectRow = typeof projects.$inferInsert;
 export type TaskRow = typeof tasks.$inferSelect;
 export type NewTaskRow = typeof tasks.$inferInsert;
+export type ProjectActivityRow = typeof projectActivities.$inferSelect;

@@ -5,6 +5,7 @@ import {
   ProjectRepository,
   type UpdateProjectInput,
 } from '../repositories/project.repository.js';
+import { ProjectActivityRepository } from '../repositories/project-activity.repository.js';
 
 const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 2_000;
@@ -81,7 +82,10 @@ function normalizeColor(color: string | null | undefined): string | null {
 }
 
 export class ProjectService {
-  constructor(private readonly projectRepository = new ProjectRepository()) {}
+  constructor(
+    private readonly projectRepository = new ProjectRepository(),
+    private readonly projectActivityRepository = new ProjectActivityRepository(),
+  ) {}
 
   create(input: CreateProjectInput): Promise<Project> {
     return this.projectRepository.create({
@@ -138,6 +142,15 @@ export class ProjectService {
 
   archive(id: string): Promise<Project> {
     return this.requireProject(this.projectRepository.archive(id), id);
+  }
+
+  restore(id: string): Promise<Project> {
+    return this.requireProject(this.projectRepository.restore(id), id);
+  }
+
+  async listActivity(id: string) {
+    await this.get(id);
+    return this.projectActivityRepository.list(id);
   }
 
   async delete(id: string): Promise<void> {

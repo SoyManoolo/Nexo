@@ -64,11 +64,15 @@ try {
 }
 
 const visibleProjects = showArchived ? archived : projects;
-const pendingTasksByProject = new Map<string, number>();
+const taskSummariesByProject = new Map<string, { total: number; completed: number; blocked: number; overdue: number }>();
 for (const task of tasks) {
-  if (task.projectId && task.status !== 'done') {
-    pendingTasksByProject.set(task.projectId, (pendingTasksByProject.get(task.projectId) ?? 0) + 1);
-  }
+  if (!task.projectId) continue;
+  const summary = taskSummariesByProject.get(task.projectId) ?? { total: 0, completed: 0, blocked: 0, overdue: 0 };
+  summary.total += 1;
+  if (task.status === 'done') summary.completed += 1;
+  if (task.status === 'blocked') summary.blocked += 1;
+  if (task.status !== 'done' && task.dueAt && Date.parse(task.dueAt) < Date.now()) summary.overdue += 1;
+  taskSummariesByProject.set(task.projectId, summary);
 }
 ---
 
@@ -100,7 +104,11 @@ for (const task of tasks) {
               <a class="project card" href={`/projects/${project.id}`}>
                 <span class="project-color" style={`background-color: ${project.color ?? '#4d8564'}`} aria-hidden="true"></span>
                 <span><strong>{project.name}</strong>{project.description && <small>{project.description}</small>}</span>
-                <small class="pending-count">{pendingTasksByProject.get(project.id) ?? 0} pendientes</small>
+                {(() => {
+                  const summary = taskSummariesByProject.get(project.id) ?? { total: 0, completed: 0, blocked: 0, overdue: 0 };
+                  const progress = summary.total ? Math.round((summary.completed / summary.total) * 100) : 0;
+                  return <span class="project-overview"><span class="project-overview-label">{summary.total - summary.completed} abiertas · {summary.blocked} bloqueadas · {summary.overdue} vencidas</span><span class="project-progress-label">{progress}%</span><progress value={progress} max="100" aria-label={`${progress}% completado`} /></span>;
+                })()}
                 <span aria-hidden="true">→</span>
               </a>
             </li>
@@ -156,7 +164,9 @@ for (const task of tasks) {
   .project strong, .project small { display: block; }
   .project small { margin-top: 0.3rem; color: #58665c; line-height: 1.4; }
   .project-color { width: 0.8rem; height: 0.8rem; border-radius: 50%; flex: none; }
-  .pending-count { flex: none; margin: 0; white-space: nowrap; color: #58665c; }
+  .project-overview { display: grid; flex: 0 1 19rem; grid-template-columns: 1fr auto; align-items: center; gap: 0.3rem 0.65rem; color: var(--subtle); font-size: 0.8rem; }
+  .project-overview progress { grid-column: 1 / -1; width: 100%; height: 0.45rem; accent-color: var(--accent-text); }
+  .project-progress-label { color: var(--accent-text); font-weight: 700; }
   .project-modal { width: min(34rem, calc(100% - 2rem)); border: 0; border-radius: 0.9rem; padding: 1.25rem; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
   .project-modal::backdrop { background: rgb(20 35 25 / 0.45); }
   .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }

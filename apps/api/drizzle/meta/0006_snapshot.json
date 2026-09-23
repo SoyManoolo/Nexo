@@ -1,0 +1,509 @@
+{
+  "id": "4dd065fc-bfcc-4155-a791-978a5430ce89",
+  "prevId": "a7175544-7257-4afe-9df8-45d3ce6a2de4",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.projects": {
+      "name": "projects",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "color": {
+          "name": "color",
+          "type": "varchar(7)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "project_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "github_repository": {
+          "primaryKey": false,
+          "type": "varchar(200)",
+          "notNull": false,
+          "name": "github_repository"
+        }
+      },
+      "indexes": {
+        "projects_status_idx": {
+          "name": "projects_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "projects_github_repository_idx": {
+          "name": "projects_github_repository_idx",
+          "columns": [
+            {
+              "expression": "github_repository",
+              "nulls": "last",
+              "asc": true,
+              "isExpression": false
+            }
+          ],
+          "with": {},
+          "method": "btree",
+          "isUnique": true,
+          "concurrently": false,
+          "where": "\"projects\".\"github_repository\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "projects_name_not_blank": {
+          "name": "projects_name_not_blank",
+          "value": "length(btrim(\"projects\".\"name\")) > 0"
+        },
+        "projects_color_hex": {
+          "name": "projects_color_hex",
+          "value": "\"projects\".\"color\" IS NULL OR \"projects\".\"color\" ~ '^#[0-9A-Fa-f]{6}$'"
+        },
+        "projects_archived_at_consistent": {
+          "name": "projects_archived_at_consistent",
+          "value": "\n    (\"projects\".\"status\" = 'archived' AND \"projects\".\"archived_at\" IS NOT NULL)\n    OR (\"projects\".\"status\" = 'active' AND \"projects\".\"archived_at\" IS NULL)\n  "
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tasks": {
+      "name": "tasks",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "task_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "priority": {
+          "name": "priority",
+          "type": "task_priority",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'medium'"
+        },
+        "pinned": {
+          "name": "pinned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "scheduled_for": {
+          "name": "scheduled_for",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "due_at": {
+          "name": "due_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "blocked_reason": {
+          "name": "blocked_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "tasks_project_id_idx": {
+          "name": "tasks_project_id_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tasks_status_scheduled_for_idx": {
+          "name": "tasks_status_scheduled_for_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "scheduled_for",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tasks_due_at_idx": {
+          "name": "tasks_due_at_idx",
+          "columns": [
+            {
+              "expression": "due_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tasks_pending_idx": {
+          "name": "tasks_pending_idx",
+          "columns": [
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"tasks\".\"status\" <> 'done'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tasks_project_id_projects_id_fk": {
+          "name": "tasks_project_id_projects_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "tasks_title_not_blank": {
+          "name": "tasks_title_not_blank",
+          "value": "length(btrim(\"tasks\".\"title\")) > 0"
+        },
+        "tasks_completion_consistency": {
+          "name": "tasks_completion_consistency",
+          "value": "\n    (\"tasks\".\"status\" = 'done' AND \"tasks\".\"completed_at\" IS NOT NULL)\n    OR (\"tasks\".\"status\" <> 'done' AND \"tasks\".\"completed_at\" IS NULL)\n  "
+        },
+        "tasks_blocked_reason_consistency": {
+          "name": "tasks_blocked_reason_consistency",
+          "value": "\n    (\"tasks\".\"status\" = 'blocked' AND \"tasks\".\"blocked_reason\" IS NOT NULL AND length(btrim(\"tasks\".\"blocked_reason\")) > 0)\n    OR (\"tasks\".\"status\" <> 'blocked' AND \"tasks\".\"blocked_reason\" IS NULL)\n  "
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.integration_settings": {
+      "isRLSEnabled": false,
+      "checkConstraints": {},
+      "policies": {},
+      "indexes": {},
+      "foreignKeys": {},
+      "schema": "",
+      "uniqueConstraints": {},
+      "compositePrimaryKeys": {},
+      "name": "integration_settings",
+      "columns": {
+        "updated_at": {
+          "primaryKey": false,
+          "default": "now()",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "name": "updated_at"
+        },
+        "key": {
+          "primaryKey": true,
+          "type": "varchar(100)",
+          "notNull": true,
+          "name": "key"
+        },
+        "encrypted_value": {
+          "primaryKey": false,
+          "type": "text",
+          "notNull": true,
+          "name": "encrypted_value"
+        }
+      }
+    },
+    "public.project_activities": {
+      "policies": {},
+      "uniqueConstraints": {},
+      "columns": {
+        "to_status": {
+          "name": "to_status",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "varchar(20)"
+        },
+        "from_status": {
+          "name": "from_status",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "varchar(20)"
+        },
+        "task_title": {
+          "name": "task_title",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "varchar(200)"
+        },
+        "id": {
+          "name": "id",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "primaryKey": true,
+          "type": "uuid"
+        },
+        "task_id": {
+          "name": "task_id",
+          "notNull": false,
+          "primaryKey": false,
+          "type": "uuid"
+        },
+        "event_type": {
+          "name": "event_type",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "varchar(40)"
+        },
+        "created_at": {
+          "name": "created_at",
+          "notNull": true,
+          "default": "now()",
+          "primaryKey": false,
+          "type": "timestamp with time zone"
+        },
+        "project_id": {
+          "name": "project_id",
+          "notNull": true,
+          "primaryKey": false,
+          "type": "uuid"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "checkConstraints": {},
+      "schema": "",
+      "indexes": {
+        "project_activities_project_created_idx": {
+          "isUnique": false,
+          "name": "project_activities_project_created_idx",
+          "method": "btree",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "with": {},
+          "concurrently": false
+        }
+      },
+      "name": "project_activities",
+      "foreignKeys": {
+        "project_activities_project_id_projects_id_fk": {
+          "name": "project_activities_project_id_projects_id_fk",
+          "tableTo": "projects",
+          "columnsTo": [
+            "id"
+          ],
+          "tableFrom": "project_activities",
+          "onDelete": "cascade",
+          "onUpdate": "no action",
+          "columnsFrom": [
+            "project_id"
+          ]
+        },
+        "project_activities_task_id_tasks_id_fk": {
+          "name": "project_activities_task_id_tasks_id_fk",
+          "tableTo": "tasks",
+          "columnsTo": [
+            "id"
+          ],
+          "tableFrom": "project_activities",
+          "onDelete": "set null",
+          "onUpdate": "no action",
+          "columnsFrom": [
+            "task_id"
+          ]
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.project_status": {
+      "name": "project_status",
+      "schema": "public",
+      "values": [
+        "active",
+        "archived"
+      ]
+    },
+    "public.task_priority": {
+      "name": "task_priority",
+      "schema": "public",
+      "values": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "public.task_status": {
+      "name": "task_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "in_review",
+        "in_progress",
+        "blocked",
+        "done"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
