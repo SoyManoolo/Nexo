@@ -86,7 +86,7 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
     <header class="page-header"><div><p class="eyebrow">Tu espacio</p><h1>Inicio</h1><p class="page-intro">Tus planes y fechas importantes, de un vistazo.</p></div></header>
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/">Volver a intentar</a></div>}
 
-    <section class="home-search card" aria-label="Búsqueda global">
+    <section class:list={['home-search card', { 'has-results': hasSearch }]} aria-label="Búsqueda global">
       <form method="get" class="home-search-form">
         <label class="field search-query">Buscar tareas o proyectos <input name="q" type="search" value={searchQuery} placeholder="Nombre, nota o etiqueta" /></label>
         <label class="field">Estado <select name="status"><option value="">Todos</option>{validStatuses.map((value) => <option value={value} selected={searchStatus === value}>{TaskStatusLabels[value as Task['status']]}</option>)}</select></label>
@@ -152,10 +152,11 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
 
 <style>
   .home-search { margin-bottom: 1rem; }
+  .home-search.has-results { position: relative; z-index: 3; }
   .home-search-form { display: grid; grid-template-columns: minmax(13rem, 2fr) repeat(4, minmax(7rem, 1fr)) auto; align-items: end; gap: 0.7rem; }
   .home-search-form .field { min-width: 0; }
   .home-search-form .button { min-height: 2.65rem; white-space: nowrap; }
-  .home-search-results { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1rem; }
+  .home-search-results { position: absolute; z-index: 4; top: calc(100% + 0.5rem); inset-inline: 0; box-sizing: border-box; max-height: min(65vh, 42rem); overflow-y: auto; border: 1px solid var(--border); border-radius: 1rem; padding: 1rem; background: var(--surface); box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.28); }
   .home-search-results h2 { margin: 0 0 0.8rem; font-size: 1.1rem; }
   .search-result-groups { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; }
   .search-result-groups h3 { margin: 0 0 0.4rem; font-size: 0.9rem; }
