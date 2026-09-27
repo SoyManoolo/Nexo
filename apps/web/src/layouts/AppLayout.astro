@@ -342,13 +342,18 @@ const { title, section } = Astro.props;
   @media (max-width: 600px) { .task-detail-content .field-pair { grid-template-columns: 1fr; } }
   @media (max-width: 720px) {
     .app-shell, .app-shell.is-collapsed { display: block; height: auto; min-height: 100dvh; overflow: visible; }
-    .sidebar { position: sticky; z-index: 5; top: 0; height: auto; min-height: 0; overflow: visible; padding: 0.8rem 1rem; gap: 0.4rem; border-right: 0; border-bottom: 1px solid #dce2da; }
-    .is-collapsed .sidebar { padding: 0.8rem 1rem; }
-    .sidebar nav { display: flex; flex: 0 1 auto; min-height: 0; overflow-x: auto; overflow-y: hidden; }
-    .sidebar nav a { white-space: nowrap; }
-    .is-collapsed .sidebar nav { display: none; }
+    .sidebar, .is-collapsed .sidebar { position: relative; z-index: 5; top: 0; height: auto; min-height: 0; overflow: visible; padding: 0.8rem 1rem; gap: 0.45rem; border-right: 0; border-bottom: 1px solid var(--border); }
+    .sidebar-top { min-height: 2.5rem; }
+    .sidebar-toggle { display: none; }
+    .is-collapsed .brand-full { display: inline; }
+    .is-collapsed .brand-short { display: none; }
+    .sidebar nav, .is-collapsed .sidebar nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: none; gap: 0.2rem; overflow: visible; }
+    .sidebar nav a, .is-collapsed .sidebar nav a { justify-content: center; gap: 0.3rem; min-width: 0; padding: 0.55rem 0.25rem; font-size: 0.8rem; text-align: center; white-space: normal; }
+    .is-collapsed .nav-label { display: inline; }
+    .nav-icon { flex: none; }
     .sidebar-note { display: none; }
-    .theme-toggle { position: absolute; right: 1rem; top: 0.8rem; }
+    .theme-toggle, .is-collapsed .theme-toggle { position: absolute; right: 1rem; top: 0.8rem; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0; }
+    .theme-label { display: none; }
     .content { height: auto; min-height: calc(100dvh - 4rem); overflow: visible; }
     .page { width: min(100% - 3rem, 96rem); padding-top: 2rem; }
     .page-header { align-items: flex-start; flex-direction: column; }
