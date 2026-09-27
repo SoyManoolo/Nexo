@@ -196,7 +196,7 @@ for (const task of tasks) {
   .project-overview { display: grid; flex: 0 1 19rem; grid-template-columns: 1fr auto; align-items: center; gap: 0.3rem 0.65rem; color: var(--subtle); font-size: 0.8rem; }
   .project-overview progress { grid-column: 1 / -1; width: 100%; height: 0.45rem; accent-color: var(--accent-text); }
   .project-progress-label { color: var(--accent-text); font-weight: 700; }
-  .project-modal { width: min(34rem, calc(100% - 2rem)); border: 0; border-radius: 0.9rem; padding: 1.25rem; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
+  .project-modal { width: min(34rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); overflow-y: auto; border: 0; border-radius: 0.9rem; padding: 1.25rem; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
   .project-modal::backdrop { background: rgb(20 35 25 / 0.45); }
   .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
   .modal-header h2 { margin: 0; font-size: 1.2rem; }
@@ -210,5 +210,9 @@ for (const task of tasks) {
     .project-overview { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; }
     .project-overview-label { overflow-wrap: anywhere; }
     .project > span:last-child { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+  }
+  @media (max-width: 360px) {
+    .project-modal .modal-actions { flex-direction: column; }
+    .project-modal .modal-actions .button { width: 100%; }
   }
 </style>
