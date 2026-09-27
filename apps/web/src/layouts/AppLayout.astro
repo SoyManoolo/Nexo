@@ -28,7 +28,6 @@ const { title, section } = Astro.props;
           <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Contraer menú" aria-expanded="true" aria-controls="sidebar-nav">☰</button>
         </div>
         <nav id="sidebar-nav" aria-label="Navegación principal">
-          <a href="/" aria-label="Inicio" aria-current={section === 'home' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Inicio</span></a>
           <a href="/inbox" aria-label="Inbox" aria-current={section === 'inbox' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">☷</span><span class="nav-label">Inbox</span></a>
           <a href="/today" aria-label="Hoy" aria-current={section === 'today' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">◷</span><span class="nav-label">Hoy</span></a>
           <a href="/projects" aria-label="Proyectos" aria-current={section === 'projects' ? 'page' : undefined}><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-label">Proyectos</span></a>
