@@ -196,6 +196,15 @@ test('TaskService rejects state-only fields that do not match the final state', 
   );
 });
 
+test('TaskService keeps the ticket prefix out of the stored editable title', async () => {
+  const { repository, service } = createService();
+  const id = '550e8400-e29b-41d4-a716-446655440077';
+  repository.tasks.set(id, task(id, { title: '#12 · Original' }));
+  await assert.rejects(service.update(id, { title: '#12 · ' }), TaskValidationError);
+  await service.update(id, { title: '#12 · Revised' });
+  assert.equal(repository.tasks.get(id)?.title, 'Revised');
+});
+
 test('TaskService deletes an existing task and rejects a second deletion', async () => {
   const { repository, service } = createService();
   const created = await service.create({ title: 'Remove task' });

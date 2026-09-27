@@ -139,7 +139,8 @@ export class TaskService {
     const normalizedInput: UpdateTaskInput = {};
 
     if (input.title !== undefined) {
-      normalizedInput.title = normalizeTitle(input.title);
+      const prefix = currentTask.title.match(/^#\d+ · /)?.[0];
+      normalizedInput.title = normalizeTitle(prefix && input.title.startsWith(prefix) ? input.title.slice(prefix.length) : input.title);
     }
 
     if (input.notes !== undefined) {

@@ -6,7 +6,7 @@ import type {
 } from '@nexo/contracts';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { taskAttachments, tasks, type NewTaskRow, type TaskRow } from '../db/schema.js';
+import { taskAttachments, taskSequences, tasks, type NewTaskRow, type TaskRow } from '../db/schema.js';
 import type { StoredTaskAttachment } from '../services/task-attachment-storage.js';
 
 function toTaskDbInput(input: CreateTaskInput | UpdateTaskInput): Partial<NewTaskRow> {
@@ -24,7 +24,7 @@ function toTaskDbInput(input: CreateTaskInput | UpdateTaskInput): Partial<NewTas
 function toTask(row: TaskRow): Task {
   return {
     id: row.id,
-    title: row.title,
+    title: `#${row.ticketNumber} · ${row.title}`,
     notes: row.notes,
     tags: row.tags ?? [],
     projectId: row.projectId,
@@ -43,11 +43,13 @@ function toTask(row: TaskRow): Task {
 
 export class TaskRepository {
   async create(input: CreateTaskInput): Promise<Task> {
-    const [task] = await db
-      .insert(tasks)
-      .values({ ...toTaskDbInput(input), title: input.title })
-      .returning();
-    return toTask(task);
+    return db.transaction(async (transaction) => {
+      const ticketNumber = await this.nextTicketNumber(transaction, input.projectId ?? null);
+      const [task] = await transaction.insert(tasks)
+        .values({ ...toTaskDbInput(input), title: input.title, ticketNumber })
+        .returning();
+      return toTask(task);
+    });
   }
 
   async list(options: ListTasksQuery = {}): Promise<Task[]> {
@@ -84,13 +86,27 @@ export class TaskRepository {
       return this.findById(id);
     }
 
-    const [task] = await db
-      .update(tasks)
-      .set({ ...toTaskDbInput(input), updatedAt: new Date() })
-      .where(eq(tasks.id, id))
-      .returning();
+    return db.transaction(async (transaction) => {
+      const [current] = await transaction.select().from(tasks).where(eq(tasks.id, id)).for('update');
+      if (!current) return null;
+      const projectChanged = input.projectId !== undefined && input.projectId !== current.projectId;
+      const ticketNumber = projectChanged
+        ? await this.nextTicketNumber(transaction, input.projectId ?? null)
+        : current.ticketNumber;
+      const [task] = await transaction.update(tasks)
+        .set({ ...toTaskDbInput(input), ticketNumber, updatedAt: new Date() })
+        .where(eq(tasks.id, id))
+        .returning();
+      return toTask(task);
+    });
+  }
 
-    return task ? toTask(task) : null;
+  private async nextTicketNumber(transaction: Parameters<Parameters<typeof db.transaction>[0]>[0], projectId: string | null): Promise<number> {
+    const scopeKey = projectId ?? 'inbox';
+    const [sequence] = await transaction.insert(taskSequences).values({ scopeKey, nextNumber: 1 })
+      .onConflictDoUpdate({ target: taskSequences.scopeKey, set: { nextNumber: sql`${taskSequences.nextNumber} + 1` } })
+      .returning({ nextNumber: taskSequences.nextNumber });
+    return sequence.nextNumber;
   }
 
   async delete(id: string): Promise<StoredTaskAttachment[] | null> {

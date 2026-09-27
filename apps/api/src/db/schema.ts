@@ -68,6 +68,7 @@ export const tasks = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
     title: varchar('title', { length: 200 }).notNull(),
+    ticketNumber: integer('ticket_number').notNull(),
     notes: text('notes'),
     tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
     status: taskStatus('status').notNull().default('pending'),
@@ -83,6 +84,8 @@ export const tasks = pgTable(
   },
   (table) => [
     index('tasks_project_id_idx').on(table.projectId),
+    uniqueIndex('tasks_project_ticket_number_idx').on(table.projectId, table.ticketNumber).where(sql`${table.projectId} IS NOT NULL`),
+    uniqueIndex('tasks_inbox_ticket_number_idx').on(table.ticketNumber).where(sql`${table.projectId} IS NULL`),
     index('tasks_status_scheduled_for_idx').on(table.status, table.scheduledFor),
     index('tasks_due_at_idx').on(table.dueAt),
     index('tasks_pending_idx')
@@ -105,6 +108,11 @@ export const tasks = pgTable(
     ),
   ],
 );
+
+export const taskSequences = pgTable('task_sequences', {
+  scopeKey: varchar('scope_key', { length: 36 }).primaryKey(),
+  nextNumber: integer('next_number').notNull(),
+});
 
 export const projectActivities = pgTable(
   'project_activities',

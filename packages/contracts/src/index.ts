@@ -170,7 +170,7 @@ export type CreateTaskInput = z.infer<typeof CreateTaskInputSchema>;
 /** Datos aceptados al actualizar una tarea. */
 export const UpdateTaskInputSchema = z
   .object({
-    title: TaskTitleInputSchema.optional(),
+    title: z.string().trim().min(1).max(220).optional(),
     projectId: EntityIdSchema.nullable().optional(),
     priority: TaskPrioritySchema.optional(),
     pinned: z.boolean().optional(),
@@ -287,7 +287,7 @@ export type Project = z.infer<typeof ProjectSchema>;
 /** Tarea que puede pertenecer a un proyecto o permanecer en el inbox. */
 export const TaskSchema = z.object({
   id: EntityIdSchema,
-  title: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(220),
   notes: z.string().nullable(),
   tags: z.array(z.string().min(1).max(40)).default([]),
   projectId: EntityIdSchema.nullable(),
