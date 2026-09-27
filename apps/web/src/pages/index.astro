@@ -118,7 +118,7 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
           <a class="period-nav" href={link(view, next)} aria-label={view === 'month' ? 'Mes siguiente' : 'Semana siguiente'}>→</a>
         </div>
       </div>
-      <div class="calendar-scroll">
+      <div class="calendar-scroll" tabindex="0" aria-label="Días del calendario; desplázate horizontalmente para ver todos">
         <div class="calendar-grid" data-view={view}>
           {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((name) => <div class="weekday">{name}</div>)}
           {days.map((day) => (
@@ -133,6 +133,7 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
           ))}
         </div>
       </div>
+      <p class="calendar-hint">Desliza para ver los demás días →</p>
       <div class="legend"><span><i class="planned-dot"></i> Programada</span><span><i class="deadline-dot"></i> Fecha límite</span></div>
     </section>
 
@@ -178,6 +179,7 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
   .period-nav { border: 1px solid #dce2da; }
   .period-nav:hover, .view-switch a:hover { background: #e0ede0; }
   .calendar-scroll { overflow-x: auto; }
+  .calendar-hint { display: none; }
   .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(5.5rem, 1fr)); min-width: 38.5rem; border-top: 1px solid #dce2da; border-left: 1px solid #dce2da; }
   .weekday { padding: 0.4rem; text-align: center; color: #58665c; font-size: 0.78rem; font-weight: 750; background: #f4f7f2; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
   .calendar-day { min-height: 4.4rem; padding: 0.35rem; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
@@ -202,5 +204,17 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
   .home-lists li a:hover { color: #316d4b; }
   .empty { margin: 0; color: #58665c; line-height: 1.5; }
   @media (max-width: 1050px) { .dashboard-grid { grid-template-columns: 1fr; } .home-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); } .home-search-form { grid-template-columns: repeat(3, minmax(0, 1fr)); } .search-query { grid-column: span 2; } }
-  @media (max-width: 720px) { .home-lists { grid-template-columns: 1fr; } .calendar { padding: 0.8rem; } .home-search-form { grid-template-columns: 1fr 1fr; } .search-query { grid-column: span 2; } .home-search-form .button { grid-column: 1 / -1; } .search-result-groups { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) {
+    .home-lists { grid-template-columns: 1fr; }
+    .calendar { padding: 0.8rem; }
+    .calendar-controls { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; width: 100%; }
+    .calendar-controls .view-switch { grid-column: 1 / -1; width: fit-content; }
+    .period-nav { text-align: center; }
+    .calendar-scroll { scrollbar-width: thin; scrollbar-color: var(--accent-text) var(--surface-muted); }
+    .calendar-hint { display: block; margin: 0.45rem 0 0; color: var(--subtle); font-size: 0.8rem; }
+    .home-search-form { grid-template-columns: 1fr 1fr; }
+    .search-query { grid-column: span 2; }
+    .home-search-form .button { grid-column: 1 / -1; }
+    .search-result-groups { grid-template-columns: 1fr; }
+  }
 </style>
