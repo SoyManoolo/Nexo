@@ -168,7 +168,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
 
   const inboxTaskId = tasks[0].id;
-  assert.match(await (await fetch(`${base}/tasks/${inboxTaskId}`)).text(), /Eliminar tarea/);
+  assert.match(await (await fetch(`${base}/tasks/${inboxTaskId}`)).text(), /id="delete-task-dialog"/);
   const deletedInboxTask = await submit(`/tasks/${inboxTaskId}`, { intent: 'delete' });
   assert.equal(deletedInboxTask.status, 303);
   assert.equal(deletedInboxTask.headers.get('location'), '/inbox');
@@ -183,7 +183,6 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.equal(deletedProjectTask.headers.get('location'), `/projects/${projects[0].id}`);
   assert.equal(tasks.some((item) => item.id === projectTask.id), false);
 
-  const archived = await submit(`/projects/${projects[0].id}`, { intent: 'archive' });
   const capture = new FormData();
   capture.set('title', 'Tarea con imagen');
   capture.set('projectId', projects[0].id);
@@ -195,6 +194,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.deepEqual(calls.find((call) => call.method === 'POST' && call.path === '/tasks' && call.body.title === 'Tarea con imagen').body.tags, ['diseño', 'urgente']);
   assert.ok(calls.some((call) => call.method === 'POST' && /\/tasks\/[^/]+\/attachments$/.test(call.path) && call.body.includes('capture.png')));
 
+  const archived = await submit(`/projects/${projects[0].id}`, { intent: 'archive' });
   assert.equal(archived.status, 303);
   assert.equal(archived.headers.get('location'), '/projects?status=archived');
   assert.equal(projects[0].status, 'archived');

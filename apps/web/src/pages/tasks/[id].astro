@@ -159,7 +159,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               <button class="button" type="submit">Guardar cambios</button>
             </form>
           </section>
-          <aside class="card actions">
+          <div class="task-side"><aside class="card actions">
             <h2>Acciones rápidas</h2>
             <form method="post"><button class="button secondary" type="submit" name="intent" value={task.pinned ? 'unpin' : 'pin'}>{task.pinned ? 'Desanclar de inicio' : 'Anclar en inicio'}</button></form>
             {task.status === 'done' ? (
@@ -186,7 +186,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
                 <form method="post"><input type="hidden" name="intent" value="remove-attachment" /><input type="hidden" name="attachmentId" value={attachment.id} /><button type="submit" class="link-button">Eliminar</button></form>
               </li>
             ))}</ul> : <p class="muted">Aún no hay archivos adjuntos.</p>}
-          </section>
+          </section></div>
         </div>
       </>
     ) : (
@@ -228,21 +228,16 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
     if (dueAtIso && dueAt) dueAtIso.value = dueAt.value ? new Date(dueAt.value).toISOString() : '';
     if (startedAtIso && startedAt) startedAtIso.value = startedAt.value ? new Date(startedAt.value).toISOString() : '';
   });
-  document.querySelector<HTMLFormElement>('[data-delete-task]')?.addEventListener('submit', (event) => {
-    if (!window.confirm('¿Eliminar esta tarea y sus archivos adjuntos? No se podrá deshacer.')) {
-      event.preventDefault();
-    }
-  });
 </script>
 
 <style>
   .back-link { display: inline-block; margin-bottom: 1.5rem; color: #316d4b; font-weight: 650; text-decoration: none; }
   .task-layout { display: grid; grid-template-columns: minmax(0, 1fr) 14rem; gap: 1.3rem; align-items: start; }
+  .task-side { display: grid; align-content: start; gap: 1.3rem; min-width: 0; }
   .field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
   .field[hidden] { display: none; }
   .actions { display: grid; gap: 0.8rem; }
   .actions form, .actions button { width: 100%; }
-  .attachments { grid-column: 2; }
   .attachment-upload { display: flex; align-items: end; flex-wrap: wrap; gap: 0.7rem; margin-bottom: 1rem; }
   .attachment-upload .field { flex: 1 1 100%; }
   .attachment-upload small { color: var(--subtle); line-height: 1.4; }

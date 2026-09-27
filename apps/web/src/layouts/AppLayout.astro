@@ -49,6 +49,11 @@ const { title, section } = Astro.props;
       <button class="lightbox-close" type="button" aria-label="Cerrar imagen">×</button>
       <img alt="" />
     </dialog>
+    <dialog class="delete-task-dialog" id="delete-task-dialog" aria-labelledby="delete-task-title">
+      <h2 id="delete-task-title">Eliminar tarea</h2>
+      <p>Se eliminarán la tarea y sus archivos adjuntos. Esta acción no se puede deshacer.</p>
+      <div class="delete-task-actions"><button class="button secondary" type="button" data-cancel-delete>Cancelar</button><button class="button danger" type="button" data-confirm-delete>Eliminar tarea</button></div>
+    </dialog>
     <script is:inline>
       const shell = document.querySelector('.app-shell');
       const toggle = document.querySelector('#sidebar-toggle');
@@ -84,6 +89,27 @@ const { title, section } = Astro.props;
       });
 
       const taskModal = document.querySelector('#task-detail-modal');
+      const deleteDialog = document.querySelector('#delete-task-dialog');
+      const approvedDeletes = new WeakSet();
+      let pendingDelete = null;
+      document.addEventListener('submit', (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches('[data-delete-task]') || approvedDeletes.has(form)) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        pendingDelete = { form, submitter: event.submitter };
+        deleteDialog?.showModal();
+      }, true);
+      deleteDialog?.querySelector('[data-cancel-delete]')?.addEventListener('click', () => deleteDialog.close());
+      deleteDialog?.addEventListener('close', () => { pendingDelete = null; });
+      deleteDialog?.querySelector('[data-confirm-delete]')?.addEventListener('click', () => {
+        if (!pendingDelete) return;
+        const { form, submitter } = pendingDelete;
+        approvedDeletes.add(form);
+        deleteDialog.close();
+        form.requestSubmit(submitter);
+        approvedDeletes.delete(form);
+      });
       const lightbox = document.querySelector('#attachment-lightbox');
       const lightboxImage = lightbox?.querySelector('img');
       document.addEventListener('click', (event) => {
@@ -208,7 +234,6 @@ const { title, section } = Astro.props;
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || form.id === 'task-form') return;
         event.preventDefault();
-        if (form.matches('[data-delete-task]') && !window.confirm('¿Eliminar esta tarea y sus archivos adjuntos? No se podrá deshacer.')) return;
         submitTaskModalForm(form, event.submitter);
       });
     </script>
@@ -326,7 +351,8 @@ const { title, section } = Astro.props;
   .task-detail-content #task-notes { min-height: 8rem; }
   .task-detail-content .actions { display: grid; gap: 0.7rem; }
   .task-detail-content .actions form, .task-detail-content .actions button { width: 100%; }
-  .task-detail-content .task-layout > .attachments { grid-column: 2; min-width: 0; }
+  .task-detail-content .task-side { display: grid; align-content: start; gap: 1rem; min-width: 0; }
+  .task-detail-content .attachments { min-width: 0; }
   .task-detail-content .attachment-upload { display: grid; gap: 0.6rem; margin-bottom: 1rem; }
   .task-detail-content .attachment-upload small { color: var(--subtle); line-height: 1.4; }
   .task-detail-content .attachment-upload .button { width: 100%; min-height: 2.7rem; border: 1px solid var(--accent-text); border-radius: 0.65rem; padding: 0.7rem 0.85rem; background: var(--accent-soft); color: var(--accent-text); font-weight: 750; transition: background 120ms ease, transform 120ms ease; }
@@ -345,7 +371,12 @@ const { title, section } = Astro.props;
   .task-detail-close:hover { border-color: var(--accent-text); background: var(--accent-soft); color: var(--text); }
   .task-detail-close:focus-visible { outline: 3px solid #75b88c; outline-offset: 2px; }
   body.task-modal-open { overflow: hidden; }
-  @media (max-width: 900px) { .task-detail-content .task-layout { grid-template-columns: 1fr; } .task-detail-content .task-layout > .attachments { grid-column: 1; } }
+  .delete-task-dialog { width: min(26rem, calc(100% - 2rem)); border: 1px solid var(--border); border-radius: 0.8rem; padding: 1.3rem; background: var(--surface); color: var(--text); }
+  .delete-task-dialog::backdrop { background: rgb(0 0 0 / 0.55); }
+  .delete-task-dialog h2 { margin: 0 0 0.5rem; }
+  .delete-task-dialog p { line-height: 1.5; }
+  .delete-task-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.6rem; }
+  @media (max-width: 900px) { .task-detail-content .task-layout { grid-template-columns: 1fr; } }
   @media (max-width: 600px) { .task-detail-content .field-pair { grid-template-columns: 1fr; } }
   @media (max-width: 720px) {
     .app-shell, .app-shell.is-collapsed { display: block; height: auto; min-height: 100dvh; overflow: visible; }
