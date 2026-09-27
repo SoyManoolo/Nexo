@@ -4,7 +4,7 @@ import { createApiClient } from '../../lib/api';
 import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
-import { NexoApiNotFoundError } from '@nexo/api-client';
+import { NexoApiError, NexoApiNotFoundError } from '@nexo/api-client';
 import { TaskStatusLabels, type GithubCommit, type Project, type ProjectActivity, type Task } from '@nexo/contracts';
 
 const id = Astro.params.id ?? '';
@@ -56,12 +56,13 @@ if (Astro.request.method === 'POST') {
   try {
     const api = createApiClient();
     if (intent === 'update') {
+      const currentProject = await api.getProject(id);
       await api.updateProject(id, {
         name: String(form.get('name') ?? ''),
         description: String(form.get('description') ?? '') || null,
         notes: String(form.get('notes') ?? '') || null,
         color: String(form.get('color') ?? '') || null,
-        githubRepository: String(form.get('githubRepository') ?? '') || null,
+        githubRepository: currentProject.githubRepository ?? (String(form.get('githubRepository') ?? '') || null),
       });
     } else if (intent === 'archive') {
       await api.archiveProject(id);
@@ -146,10 +147,15 @@ if (project) {
     activityError = 'No se pudo cargar la actividad reciente.';
   }
   if (project.githubRepository) {
+    Astro.response.headers.set('Cache-Control', 'no-store, max-age=0');
     try { commits = await createApiClient().listGithubCommits(id); }
     catch (error) {
       console.error('No se pudieron cargar los commits de GitHub:', error);
-      githubError = 'No se pudieron cargar los commits. Revisa la conexión de GitHub en Ajustes.';
+      githubError = error instanceof NexoApiError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : 'No se pudieron cargar los commits. Revisa la conexión de GitHub en Ajustes.';
     }
   }
 }
@@ -353,7 +359,10 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
               <label class="field">Descripción <textarea name="description" maxlength="2000">{formValue(updateForm, 'description', project.description ?? '')}</textarea></label>
               <label class="field">Notas del proyecto <textarea name="notes" maxlength="10000" rows="8">{formValue(updateForm, 'notes', project.notes ?? '')}</textarea><small>Decisiones, contexto y referencias que quieras conservar.</small></label>
               <label class="field">Color <input name="color" type="color" value={formValue(updateForm, 'color', project.color ?? '#4d8564')} /></label>
-              <label class="field">Repositorio de GitHub <input name="githubRepository" type="url" maxlength="500" placeholder="https://github.com/organizacion/repositorio" value={formValue(updateForm, 'githubRepository', project.githubRepository ? `https://github.com/${project.githubRepository}` : '')} /></label>
+              {project.githubRepository ? <>
+                <div class="field"><span>Repositorio de GitHub</span><a href={`https://github.com/${project.githubRepository}`} target="_blank" rel="noreferrer">{project.githubRepository} ↗</a><small>Vinculado al importar; la dirección no se puede editar aquí.</small></div>
+                <input type="hidden" name="githubRepository" value={project.githubRepository} />
+              </> : <label class="field">Repositorio de GitHub <input name="githubRepository" type="url" maxlength="500" placeholder="https://github.com/organizacion/repositorio" value={formValue(updateForm, 'githubRepository', '')} /></label>}
               <button class="button secondary" type="submit">Guardar cambios</button>
             </div>
           </form>

@@ -36,7 +36,12 @@ function decrypt(value: string): string {
 
 async function getToken(): Promise<string | null> {
   const [setting] = await db.select().from(integrationSettings).where(eq(integrationSettings.key, TOKEN_KEY));
-  return setting ? decrypt(setting.encryptedValue) : null;
+  if (!setting) return null;
+  try {
+    return decrypt(setting.encryptedValue);
+  } catch {
+    throw new GithubIntegrationError('No se pudo descifrar el token de GitHub. Comprueba que GITHUB_TOKEN_ENCRYPTION_KEY conserve su valor y vuelve a guardar el token en Ajustes.', 503);
+  }
 }
 
 export async function githubConnectionStatus(): Promise<{ connected: boolean }> {
@@ -65,10 +70,16 @@ function githubHeaders(token: string | null): HeadersInit {
 
 async function request<T>(path: string): Promise<T> {
   const token = await getToken();
-  const response = await fetch(`${GITHUB_API}${path}`, { headers: githubHeaders(token), signal: AbortSignal.timeout(10_000) });
+  const response = await fetch(`${GITHUB_API}${path}`, { headers: githubHeaders(token), signal: AbortSignal.timeout(10_000), cache: 'no-store' });
   if (!response.ok) {
     if (response.status === 404) throw new GithubIntegrationError('No se encontró el repositorio. Revisa la URL y los permisos del token.', 404);
-    if (response.status === 401 || response.status === 403) throw new GithubIntegrationError('GitHub rechazó el token o se alcanzó el límite de consultas.', 502);
+    if (response.status === 401) throw new GithubIntegrationError('GitHub rechazó el token. Vuelve a guardarlo desde Ajustes.', 502);
+    if (response.status === 403) {
+      const remaining = response.headers.get('x-ratelimit-remaining');
+      throw new GithubIntegrationError(remaining === '0'
+        ? 'GitHub alcanzó el límite de consultas. Espera a que se restablezca y vuelve a cargar el proyecto.'
+        : 'GitHub denegó el acceso. Revisa que el token tenga permiso de lectura del contenido del repositorio y autorización de la organización si corresponde.', 502);
+    }
     throw new GithubIntegrationError(`GitHub respondió con ${response.status}.`, 502);
   }
   return response.json() as Promise<T>;
