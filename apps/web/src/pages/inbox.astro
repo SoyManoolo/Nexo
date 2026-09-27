@@ -132,8 +132,7 @@ try {
       <nav class="view-switcher" aria-label="Vista de tareas"><a href={inboxHref('board')} aria-current={taskView === 'board' ? 'page' : undefined}>Columnas</a><a href={inboxHref('list')} aria-current={taskView === 'list' ? 'page' : undefined}>Filas</a></nav>
     </div>
     {!errorMessage && tasks.length === 0 && <div class="notice"><h2>{priorityFilter ? 'No hay tareas con esta prioridad' : 'Inbox vacío'}</h2><p>{priorityFilter ? 'Prueba con otra prioridad o muestra todas.' : 'Cuando captures una tarea, aparecerá aquí.'}</p></div>}
-    {tasks.length > 0 && taskView === 'list' && <ul class="tasks">
-      {tasks.map((task) => (
+    {tasks.length > 0 && taskView === 'list' && <div class="task-groups">{taskStatuses.map(({ value, label }) => { const statusTasks = tasks.filter((task) => task.status === value); return <section class="task-group" aria-labelledby={`inbox-list-${value}`}><h2 id={`inbox-list-${value}`}>{label} <span class="muted">({statusTasks.length})</span></h2><ul class="tasks">{statusTasks.map((task) => (
         <li class="task card">
           <form method="post">
             <input type="hidden" name="taskId" value={task.id} />
@@ -141,8 +140,7 @@ try {
           </form>
           <a href={`/tasks/${task.id}`}><span><strong>{task.title}</strong>{task.notes && <small>{task.notes}</small>}</span><small>{TaskStatusLabels[task.status]} · {task.priority}</small></a>
         </li>
-      ))}
-    </ul>}
+      ))}</ul></section>; })}</div>}
     {tasks.length > 0 && taskView === 'board' && <div class="task-board" aria-label="Tareas del inbox por estado">
       {taskStatuses.map(({ value, label }) => {
         const columnTasks = tasks.filter((task) => task.status === value);
@@ -188,6 +186,9 @@ try {
   .filters { display: flex; align-items: end; gap: 0.6rem; max-width: 15rem; }
   .filters .field { flex: 1; }
   .tasks { display: grid; gap: 0.7rem; padding: 0; margin: 0; list-style: none; }
+  .task-groups { display: grid; gap: 1.4rem; }
+  .task-group { border-top: 1px solid var(--border); padding-top: 0.8rem; }
+  .task-group h2 { margin: 0 0 0.7rem; font-size: 1rem; }
   .task { display: flex; align-items: center; gap: 0.8rem; padding: 0.8rem 1rem; }
   .task:hover { border-color: #7faa8c; }
   .task a { display: flex; flex: 1; justify-content: space-between; gap: 1rem; min-width: 0; text-decoration: none; padding: 0.5rem 0; }
@@ -203,6 +204,7 @@ try {
   .task-column { border: 1px solid #dce2da; border-radius: 0.7rem; padding: 0.8rem; background: #f7faf7; }
   .task-column h2 { margin: 0 0 0.75rem; color: #365440; font-size: 0.95rem; }
   .board-tasks { display: grid; gap: 0.5rem; padding: 0; margin: 0; list-style: none; }
+  .board-tasks { max-height: 32rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
   .board-task { display: grid; gap: 0.35rem; padding: 1rem; text-decoration: none; }
   .board-task:hover { border-color: #7faa8c; }
   .board-task small, .empty-column { color: #58665c; }

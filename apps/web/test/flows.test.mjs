@@ -138,6 +138,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
     dueAt: '2026-09-24T12:00', dueAtIso: '2026-09-24T10:00:00.000Z',
   })).status, 303);
   assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
+  assert.match(await (await fetch(`${base}/inbox?view=list`)).text(), /id="inbox-list-pending"/);
   assert.equal(calls.find((call) => call.method === 'POST' && call.path === '/tasks').body.title,
     'Tarea capturada');
   assert.equal(tasks[0].dueAt, '2026-09-24T10:00:00.000Z');
