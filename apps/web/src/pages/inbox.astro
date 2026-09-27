@@ -198,5 +198,11 @@ try {
   .board-task:hover { border-color: #7faa8c; }
   .board-task small, .empty-column { color: #58665c; }
   .empty-column { margin: 0; font-size: 0.9rem; }
-  @media (max-width: 600px) { .capture-details { grid-template-columns: 1fr; } .task a, .inbox-toolbar { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } }
+  @media (max-width: 600px) {
+    .capture-details, .task-board { grid-template-columns: minmax(0, 1fr); }
+    .task-board { min-height: 0; overflow: visible; }
+    .task-column { min-width: 0; }
+    .task a, .inbox-toolbar { flex-direction: column; align-items: stretch; }
+    .view-switcher { align-self: flex-start; }
+  }
 </style>
