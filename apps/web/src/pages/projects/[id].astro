@@ -4,6 +4,7 @@ import { createApiClient } from '../../lib/api';
 import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
+import { selectedTags, tagChoices } from '../../lib/task-tags';
 import { NexoApiError, NexoApiNotFoundError } from '@nexo/api-client';
 import { TaskStatusLabels, type GithubCommit, type Project, type ProjectActivity, type Task } from '@nexo/contracts';
 
@@ -92,15 +93,21 @@ if (Astro.request.method === 'POST') {
     } else if (intent === 'create-task') {
       const dueAt = String(form.get('dueAt') ?? '');
       const dueAtIso = String(form.get('dueAtIso') ?? '');
-      await api.createTask({
+      const file = form.get('file');
+      if (file instanceof File && file.size > 10 * 1024 * 1024) throw new Error('La imagen no puede superar 10 MB.');
+      const created = await api.createTask({
         title: String(form.get('title') ?? ''),
         notes: String(form.get('notes') ?? '') || null,
-        tags: String(form.get('tags') ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
+        tags: selectedTags(form),
         priority: String(form.get('priority') ?? 'medium') as Task['priority'],
         scheduledFor: String(form.get('scheduledFor') ?? '') || null,
         dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
         projectId: id,
       });
+      if (file instanceof File && file.size > 0) {
+        try { await api.addTaskAttachment(created.id, file); }
+        catch (error) { await api.deleteTask(created.id); throw error; }
+      }
     } else {
       throw new Error('Acción desconocida');
     }
@@ -289,7 +296,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
           {project.status === 'active' && (
               <>
                 <dialog class="task-modal" id="task-modal" aria-labelledby="task-modal-title" open={Boolean(taskForm)}>
-                  <form method="post" class="quick-add" id="project-task-form">
+                  <form method="post" enctype="multipart/form-data" class="quick-add" id="project-task-form">
                     <input type="hidden" name="intent" value="create-task" />
                     <div class="modal-header">
                       <h2 id="task-modal-title">Añadir tarea</h2>
@@ -297,9 +304,10 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
                     </div>
                     <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" value={formValue(taskForm, 'title')} autofocus /></label>
                     <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(taskForm, 'notes')}</textarea></label>
-                    <label class="field">Etiquetas <input name="tags" maxlength="820" placeholder="diseño, urgente, ideas" value={formValue(taskForm, 'tags')} /><small>Separa las etiquetas con comas.</small></label>
+                    <label class="field">Etiquetas <select name="tags" multiple size="5">{tagChoices(selectedTags(taskForm ?? new FormData())).map((tag) => <option value={tag} selected={selectedTags(taskForm ?? new FormData()).includes(tag)}>{tag}</option>)}</select><small>Selecciona una o varias etiquetas.</small></label>
+                    <label class="field">Imagen <input name="file" type="file" accept="image/png,image/jpeg,image/webp" /><small>PNG, JPEG o WebP · máximo 10 MB</small></label>
                     <div class="quick-fields">
-                      <label class="field">Prioridad <select name="priority"><option value="medium" selected={formValue(taskForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(taskForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(taskForm, 'priority') === 'high'}>Alta</option></select></label>
+                      <label class="field">Prioridad <select name="priority"><option value="low" selected={formValue(taskForm, 'priority') === 'low'}>Baja</option><option value="medium" selected={formValue(taskForm, 'priority', 'medium') === 'medium'}>Media</option><option value="high" selected={formValue(taskForm, 'priority') === 'high'}>Alta</option></select></label>
                       <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(taskForm, 'scheduledFor')} /></label>
                       <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={formValue(taskForm, 'dueAt')} /></label>
                       <input name="dueAtIso" type="hidden" />

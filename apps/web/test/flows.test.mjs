@@ -37,7 +37,8 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
     const url = new URL(req.url, 'http://localhost');
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
-    const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : undefined;
+    const rawBody = Buffer.concat(chunks).toString();
+    const body = chunks.length ? (req.headers['content-type']?.startsWith('multipart/form-data') ? rawBody : JSON.parse(rawBody)) : undefined;
     calls.push({ method: req.method, path: url.pathname, body });
     let value;
     if (url.pathname === '/projects') {
@@ -50,6 +51,11 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
         value = makeTask(body);
         tasks.push(value);
       } else value = tasks;
+    } else if (/^\/tasks\/[^/]+\/attachments$/.test(url.pathname)) {
+      value = req.method === 'POST' ? {
+        id: randomUUID(), taskId: url.pathname.split('/')[2], fileName: 'capture.png',
+        mimeType: 'image/png', size: 3, createdAt: now,
+      } : [];
     } else {
       const project = /^\/projects\/([^/]+)(\/archive)?$/.exec(url.pathname);
       const task = /^\/tasks\/([^/]+)(\/complete|\/reopen)?$/.exec(url.pathname);
@@ -123,6 +129,8 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.match(projectPage, /Vista de tareas/);
   assert.match(projectPage, /Columnas[\s\S]*Filas/);
   assert.match(projectPage, /class="task-board/);
+  assert.match(projectPage, /name="tags" multiple/);
+  assert.match(projectPage, /name="file" type="file"/);
   assert.match(await (await fetch(`${base}/projects/${projects[0].id}?view=list`)).text(), /name="view" value="list"/);
 
   assert.equal((await submit('/inbox', {
@@ -175,6 +183,17 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.equal(tasks.some((item) => item.id === projectTask.id), false);
 
   const archived = await submit(`/projects/${projects[0].id}`, { intent: 'archive' });
+  const capture = new FormData();
+  capture.set('title', 'Tarea con imagen');
+  capture.set('projectId', projects[0].id);
+  capture.append('tags', 'diseño');
+  capture.append('tags', 'urgente');
+  capture.set('file', new Blob(['png'], { type: 'image/png' }), 'capture.png');
+  const withImage = await fetch(`${base}/inbox`, { method: 'POST', headers: { origin: base }, body: capture, redirect: 'manual' });
+  assert.equal(withImage.status, 303);
+  assert.deepEqual(calls.find((call) => call.method === 'POST' && call.path === '/tasks' && call.body.title === 'Tarea con imagen').body.tags, ['diseño', 'urgente']);
+  assert.ok(calls.some((call) => call.method === 'POST' && /\/tasks\/[^/]+\/attachments$/.test(call.path) && call.body.includes('capture.png')));
+
   assert.equal(archived.status, 303);
   assert.equal(archived.headers.get('location'), '/projects?status=archived');
   assert.equal(projects[0].status, 'archived');

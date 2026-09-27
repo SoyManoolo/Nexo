@@ -4,6 +4,7 @@ import { createApiClient } from '../../lib/api';
 import { formError } from '../../lib/form-error';
 import { formValue } from '../../lib/form-value';
 import { isSameOrigin } from '../../lib/security';
+import { selectedTags, tagChoices } from '../../lib/task-tags';
 import { NexoApiNotFoundError } from '@nexo/api-client';
 import { TaskStatusLabels, type Project, type Task, type TaskAttachment, type TaskStatus } from '@nexo/contracts';
 
@@ -53,7 +54,7 @@ if (Astro.request.method === 'POST') {
       await api.updateTask(id, {
         title: String(form.get('title') ?? ''),
         notes: String(form.get('notes') ?? '') || null,
-        tags: String(form.get('tags') ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
+        tags: selectedTags(form),
         ...(selectedProjectId === current.projectId ? {} : { projectId: selectedProjectId }),
         status,
         priority: String(form.get('priority') ?? 'medium') as Task['priority'],
@@ -120,9 +121,9 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
             <h2>Detalles de la tarea</h2>
             <form method="post" class="form-grid" id="task-form">
               <input type="hidden" name="intent" value="save" />
-              <label class="field">Título <input name="title" required maxlength="200" value={formValue(submittedForm, 'title', task.title)} /></label>
+              <label class="field">Título <input name="title" required maxlength="220" value={formValue(submittedForm, 'title', task.title)} /></label>
               <label class="field">Notas <textarea id="task-notes" name="notes" maxlength="2000">{formValue(submittedForm, 'notes', task.notes ?? '')}</textarea></label>
-              <label class="field">Etiquetas <input name="tags" maxlength="820" value={formValue(submittedForm, 'tags', task.tags.join(', '))} placeholder="diseño, urgente, ideas" /><small>Separa las etiquetas con comas.</small></label>
+              <label class="field">Etiquetas <select name="tags" multiple size="5">{tagChoices(submittedForm ? selectedTags(submittedForm) : task.tags).map((tag) => <option value={tag} selected={(submittedForm ? selectedTags(submittedForm) : task.tags).includes(tag)}>{tag}</option>)}</select><small>Selecciona una o varias etiquetas.</small></label>
               <label class="field">Proyecto
                 <select name="projectId">
                   <option value="" selected={formValue(submittedForm, 'projectId', task.projectId ?? '') === ''}>Sin proyecto (inbox)</option>

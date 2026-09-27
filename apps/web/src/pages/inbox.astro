@@ -4,6 +4,7 @@ import { createApiClient } from '../lib/api';
 import { formError } from '../lib/form-error';
 import { formValue } from '../lib/form-value';
 import { isSameOrigin } from '../lib/security';
+import { selectedTags, tagChoices } from '../lib/task-tags';
 import { TaskStatusLabels, type Project, type Task } from '@nexo/contracts';
 
 let tasks: Task[] = [];
@@ -49,15 +50,22 @@ if (Astro.request.method === 'POST') {
     const projectId = String(form.get('projectId') ?? '') || null;
     const dueAt = String(form.get('dueAt') ?? '');
     const dueAtIso = String(form.get('dueAtIso') ?? '');
-    await createApiClient().createTask({
+    const file = form.get('file');
+    if (file instanceof File && file.size > 10 * 1024 * 1024) throw new Error('La imagen no puede superar 10 MB.');
+    const api = createApiClient();
+    const created = await api.createTask({
       title: String(form.get('title') ?? ''),
       notes: String(form.get('notes') ?? '') || null,
       priority: String(form.get('priority') ?? 'medium') as Task['priority'],
-      tags: String(form.get('tags') ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
+      tags: selectedTags(form),
       scheduledFor: String(form.get('scheduledFor') ?? '') || null,
       dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
       projectId,
     });
+    if (file instanceof File && file.size > 0) {
+      try { await api.addTaskAttachment(created.id, file); }
+      catch (error) { await api.deleteTask(created.id); throw error; }
+    }
     return Astro.redirect(projectId ? `/projects/${projectId}` : '/inbox', 303);
   } catch (error) {
     console.error('No se pudo crear la tarea:', error);
@@ -88,18 +96,19 @@ try {
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/inbox">Volver a intentar</a></div>}
 
     <dialog class="task-modal" id="capture-modal" aria-labelledby="capture-modal-title" open={Boolean(submittedForm)}>
-      <form class="capture" method="post" id="capture-form">
+      <form class="capture" method="post" enctype="multipart/form-data" id="capture-form">
         <input type="hidden" name="intent" value="create" />
         <div class="modal-header"><h2 id="capture-modal-title">Añadir tarea</h2><button class="modal-close" type="button" id="close-capture-modal" aria-label="Cerrar">×</button></div>
         <label class="field">Nueva tarea <input name="title" maxlength="200" required placeholder="¿Qué tienes pendiente?" autocomplete="off" value={formValue(submittedForm, 'title')} autofocus /></label>
         <div class="capture-details">
           <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(submittedForm, 'notes')}</textarea></label>
-          <label class="field">Etiquetas <input name="tags" maxlength="820" placeholder="diseño, urgente, ideas" value={formValue(submittedForm, 'tags')} /><small>Separa las etiquetas con comas.</small></label>
+          <label class="field">Etiquetas <select name="tags" multiple size="5">{tagChoices(selectedTags(submittedForm ?? new FormData())).map((tag) => <option value={tag} selected={selectedTags(submittedForm ?? new FormData()).includes(tag)}>{tag}</option>)}</select><small>Selecciona una o varias etiquetas.</small></label>
+          <label class="field">Imagen <input name="file" type="file" accept="image/png,image/jpeg,image/webp" /><small>PNG, JPEG o WebP · máximo 10 MB</small></label>
           <label class="field">Proyecto
             <select name="projectId"><option value="">Sin proyecto</option>{projects.map((project) => <option value={project.id} selected={formValue(submittedForm, 'projectId') === project.id}>{project.name}</option>)}</select>
           </label>
           <label class="field">Prioridad
-            <select name="priority"><option value="medium" selected={formValue(submittedForm, 'priority', 'medium') === 'medium'}>Media</option><option value="low" selected={formValue(submittedForm, 'priority') === 'low'}>Baja</option><option value="high" selected={formValue(submittedForm, 'priority') === 'high'}>Alta</option></select>
+            <select name="priority"><option value="low" selected={formValue(submittedForm, 'priority') === 'low'}>Baja</option><option value="medium" selected={formValue(submittedForm, 'priority', 'medium') === 'medium'}>Media</option><option value="high" selected={formValue(submittedForm, 'priority') === 'high'}>Alta</option></select>
           </label>
           <label class="field">Programada para <input name="scheduledFor" type="date" value={formValue(submittedForm, 'scheduledFor')} /></label>
           <label class="field">Fecha límite <input name="dueAt" type="datetime-local" value={formValue(submittedForm, 'dueAt')} /></label>
