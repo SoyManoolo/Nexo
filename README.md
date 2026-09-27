@@ -120,7 +120,7 @@ Docker Compose lee las credenciales de PostgreSQL desde `.env` y construye las U
 
 - `API_BASE_URL`: URL de la API usada por Astro en el servidor. Por defecto, `http://127.0.0.1:3000`.
 - `NEXO_TIME_ZONE`: zona horaria usada por las vistas Inicio y Hoy. Por defecto, `Europe/Madrid`.
-- `WEB_ALLOWED_HOSTNAME`: nombre de host adicional permitido al compilar la web; es opcional y útil al servirla fuera de `localhost`.
+- `WEB_ALLOWED_HOSTNAME`: hostname o IP desde la que se abre la web cuando no es `localhost` ni `127.0.0.1`. Se incorpora al compilar Astro; si falta, los formularios enviados desde esa dirección reciben un 403. Indícalo sin `http://` ni puerto y reconstruye la imagen web tras cambiarlo.
 - `GITHUB_TOKEN_ENCRYPTION_KEY`: secreto privado requerido por la API para cifrar el token de GitHub que se configura desde Ajustes.
 
 La guía de contenedores, migraciones, comprobaciones de salud y puertos está en [infra/README.md](C:/Users/eriks/Documents/GitHub/Nexo/infra/README.md).

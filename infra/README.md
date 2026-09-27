@@ -35,7 +35,21 @@ lectura de un proyecto o una tarea después del despliegue.
   GitHub guardado en Ajustes.
 - `MCP_AUTH_TOKEN`: token Bearer para los clientes MCP.
 - `NEXO_TIME_ZONE`: zona horaria de la interfaz.
-- `WEB_ALLOWED_HOSTNAME`: hostname adicional permitido por Astro, si se accede mediante un dominio.
+- `WEB_ALLOWED_HOSTNAME`: hostname o IP adicional desde la que se abre Astro. Es necesario para
+  formularios cuando se accede por LAN o por un dominio, y se incorpora a la imagen durante la
+  compilación. Escribe solo el hostname o la IP, sin protocolo ni puerto.
+
+Por ejemplo, para abrir `http://192.168.1.107:4321/settings`, configura en el `.env` del servidor:
+
+```dotenv
+WEB_BIND_ADDRESS=0.0.0.0
+WEB_ALLOWED_HOSTNAME=192.168.1.107
+```
+
+Después reconstruye y recrea la web con `docker compose up -d --build web`. Si la página ya es
+accesible desde la LAN, `WEB_BIND_ADDRESS` ya estará configurado para ello; el 403 del formulario
+se corrige al permitir la IP con `WEB_ALLOWED_HOSTNAME` y reconstruir la imagen. No desactives
+`security.checkOrigin`: protege los formularios frente a envíos desde otros sitios.
 
 Las URLs internas se forman con los nombres de servicio: `postgres:5432` y `api:3000`. No se debe
 usar `localhost` entre contenedores.
