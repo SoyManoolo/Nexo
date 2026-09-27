@@ -33,6 +33,9 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
       calls.push({ name: 'updateTask', arguments: { id, ...(input as object) } });
       return { id, ...(input as object) };
     },
+    deleteTask: async (id: string) => {
+      calls.push({ name: 'deleteTask', arguments: { id } });
+    },
   } as unknown as NexoApiClient;
 
   const server = createNexoMcpServer(fakeApi);
@@ -46,7 +49,7 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
     const { tools } = await client.listTools();
     assert.deepEqual(
       tools.map(({ name }) => name),
-      ['list_projects', 'get_project', 'list_tasks', 'get_task', 'create_task', 'update_task'],
+      ['list_projects', 'get_project', 'list_tasks', 'get_task', 'create_task', 'update_task', 'delete_task'],
     );
 
     await client.callTool({ name: 'list_projects', arguments: { status: 'active' } });
@@ -75,6 +78,9 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
       name: 'update_task',
       arguments: { id: taskId, status: 'in_review' },
     });
+    const deleted = await client.callTool({ name: 'delete_task', arguments: { id: taskId } });
+    assert.equal(deleted.isError, undefined);
+    assert.deepEqual(JSON.parse(String(deleted.content[0]?.type === 'text' ? deleted.content[0].text : 'null')), { deleted: true });
 
     assert.deepEqual(calls, [
       { name: 'listProjects', arguments: { status: 'active' } },
@@ -83,6 +89,7 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
       { name: 'getTask', arguments: { id: taskId } },
       { name: 'createTask', arguments: { title: 'Preparar demo', priority: 'high' } },
       { name: 'updateTask', arguments: { id: taskId, status: 'in_review' } },
+      { name: 'deleteTask', arguments: { id: taskId } },
     ]);
   } finally {
     await client.close();

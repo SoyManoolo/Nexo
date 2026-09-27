@@ -9,7 +9,7 @@ La aplicación web y la API están implementadas y usan PostgreSQL. Actualmente 
 - crear, editar, archivar, restaurar y eliminar proyectos;
 - capturar tareas en el Inbox o asignarlas a un proyecto;
 - organizar tareas por estado (Pendiente, En progreso, En revisión, Completada y Bloqueada), prioridad, fechas y anclado en inicio;
-- completar, reabrir y devolver tareas al Inbox;
+- completar, reabrir, devolver tareas al Inbox y eliminarlas con sus archivos adjuntos;
 - consultar Inicio (calendario mensual o semanal, tareas ancladas y recientes), Inbox, Hoy y Proyectos;
 - importar repositorios de GitHub como proyectos, vincularlos a proyectos existentes y consultar sus commits recientes;
 - consultar el avance, las tareas abiertas, bloqueadas y vencidas de cada proyecto, y una cronología de actividad con cambios de tareas y commits de GitHub;
@@ -161,7 +161,7 @@ La API expone `GET /health`, recursos de proyectos bajo `/projects` y tareas baj
 
 ## Servidor MCP
 
-El servidor independiente de `apps/mcp` publica `http://127.0.0.1:3100/mcp` mediante Streamable HTTP y reutiliza el cliente de la API. Ofrece `list_projects`, `get_project`, `list_tasks`, `get_task`, `create_task` y `update_task`. Necesita que la API esté activa; configura `NEXO_API_BASE_URL` si no escucha en `http://127.0.0.1:3000`.
+El servidor independiente de `apps/mcp` publica `http://127.0.0.1:3100/mcp` mediante Streamable HTTP y reutiliza el cliente de la API. Ofrece `list_projects`, `get_project`, `list_tasks`, `get_task`, `create_task`, `update_task` y `delete_task`. Necesita que la API esté activa; configura `NEXO_API_BASE_URL` si no escucha en `http://127.0.0.1:3000`.
 
 En otra terminal, arráncalo localmente:
 

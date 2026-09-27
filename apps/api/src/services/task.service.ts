@@ -6,6 +6,7 @@ import type {
 } from '@nexo/contracts';
 import { ProjectRepository } from '../repositories/project.repository.js';
 import { TaskRepository } from '../repositories/task.repository.js';
+import { removeStoredAttachments } from './task-attachment-storage.js';
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_NOTES_LENGTH = 2_000;
@@ -197,6 +198,12 @@ export class TaskService {
 
   moveToInbox(id: string): Promise<Task> {
     return this.update(id, { projectId: null });
+  }
+
+  async delete(id: string): Promise<void> {
+    const attachments = await this.taskRepository.delete(id);
+    if (!attachments) throw new TaskNotFoundError(id);
+    await removeStoredAttachments(attachments);
   }
 
   private async validateProject(projectId: string | null | undefined): Promise<string | null> {

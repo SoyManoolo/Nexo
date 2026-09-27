@@ -106,6 +106,10 @@ class InMemoryTaskRepository extends TaskRepository {
     this.tasks.set(id, updated);
     return updated;
   }
+
+  override async delete(id: string): Promise<[] | null> {
+    return this.tasks.delete(id) ? [] : null;
+  }
 }
 
 function createService() {
@@ -190,4 +194,12 @@ test('TaskService rejects state-only fields that do not match the final state', 
     service.update(created.id, { completedAt: '2026-01-04T00:00:00.000Z' }),
     TaskValidationError,
   );
+});
+
+test('TaskService deletes an existing task and rejects a second deletion', async () => {
+  const { repository, service } = createService();
+  const created = await service.create({ title: 'Remove task' });
+  await service.delete(created.id);
+  assert.equal(repository.tasks.has(created.id), false);
+  await assert.rejects(service.delete(created.id), { name: 'TaskNotFoundError' });
 });

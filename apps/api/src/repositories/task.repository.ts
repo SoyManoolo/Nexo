@@ -6,7 +6,8 @@ import type {
 } from '@nexo/contracts';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { tasks, type NewTaskRow, type TaskRow } from '../db/schema.js';
+import { taskAttachments, tasks, type NewTaskRow, type TaskRow } from '../db/schema.js';
+import type { StoredTaskAttachment } from '../services/task-attachment-storage.js';
 
 function toTaskDbInput(input: CreateTaskInput | UpdateTaskInput): Partial<NewTaskRow> {
   const { dueAt, startedAt, completedAt, ...rest } = input;
@@ -90,5 +91,16 @@ export class TaskRepository {
       .returning();
 
     return task ? toTask(task) : null;
+  }
+
+  async delete(id: string): Promise<StoredTaskAttachment[] | null> {
+    return db.transaction(async (transaction) => {
+      const attachments = await transaction
+        .select({ storageKey: taskAttachments.storageKey, mimeType: taskAttachments.mimeType })
+        .from(taskAttachments)
+        .where(eq(taskAttachments.taskId, id));
+      const deleted = await transaction.delete(tasks).where(eq(tasks.id, id)).returning({ id: tasks.id });
+      return deleted.length ? attachments : null;
+    });
   }
 }

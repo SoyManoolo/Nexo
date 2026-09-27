@@ -36,10 +36,10 @@ test('expone todas las rutas de proyectos y tareas', async () => {
     return new Response(JSON.stringify(url.includes('/projects') ? (init?.method === 'GET' && url.includes('?') ? [project()] : project()) : task()));
   } });
   await client.listProjects({ status: 'active' }); await client.getProject(ID); await client.updateProject(ID, { name: 'Renamed' }); await client.archiveProject(ID); await client.deleteProject(ID);
-  await client.createTask({ title: 'New task' }); await client.getTask(ID); await client.updateTask(ID, { title: 'Renamed task' }); await client.completeTask(ID); await client.reopenTask(ID); await client.moveTaskToInbox(ID);
+  await client.createTask({ title: 'New task' }); await client.getTask(ID); await client.updateTask(ID, { title: 'Renamed task' }); await client.completeTask(ID); await client.reopenTask(ID); await client.moveTaskToInbox(ID); await client.deleteTask(ID);
   assert.deepEqual(requests, [
     { url: 'https://api.example.test/projects?status=active', method: 'GET' }, { url: `https://api.example.test/projects/${ID}`, method: 'GET' }, { url: `https://api.example.test/projects/${ID}`, method: 'PATCH' }, { url: `https://api.example.test/projects/${ID}/archive`, method: 'POST' }, { url: `https://api.example.test/projects/${ID}`, method: 'DELETE' },
-    { url: 'https://api.example.test/tasks', method: 'POST' }, { url: `https://api.example.test/tasks/${ID}`, method: 'GET' }, { url: `https://api.example.test/tasks/${ID}`, method: 'PATCH' }, { url: `https://api.example.test/tasks/${ID}/complete`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}/reopen`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}/move-to-inbox`, method: 'POST' },
+    { url: 'https://api.example.test/tasks', method: 'POST' }, { url: `https://api.example.test/tasks/${ID}`, method: 'GET' }, { url: `https://api.example.test/tasks/${ID}`, method: 'PATCH' }, { url: `https://api.example.test/tasks/${ID}/complete`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}/reopen`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}/move-to-inbox`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}`, method: 'DELETE' },
   ]);
 });
 

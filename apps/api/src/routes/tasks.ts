@@ -88,6 +88,15 @@ export function createTasksRoute(
     return context.json(task);
   });
 
+  tasksRoute.delete('/:id', async (context) => {
+    const params = TaskIdParamsSchema.safeParse(context.req.param());
+    if (!params.success) {
+      return context.json({ error: 'validation_error', message: 'Invalid task ID' }, 400);
+    }
+    await taskService.delete(params.data.id);
+    return context.body(null, 204);
+  });
+
   tasksRoute.post('/:id/complete', async (context) => {
     return runTaskAction(context, (id) => taskService.complete(id));
   });

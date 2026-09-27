@@ -176,6 +176,13 @@ const { title, section } = Astro.props;
       async function submitTaskModalForm(form, submitter) {
         const taskUrl = form.getAttribute('action') || location.href;
         const response = await fetch(taskUrl, { method: 'POST', body: submitter ? new FormData(form, submitter) : new FormData(form), headers: { 'Accept': 'text/html' } });
+        if (form.matches('[data-delete-task]') && response.redirected) {
+          const destination = new URL(response.url);
+          if (destination.origin === location.origin) {
+            location.assign(destination.href);
+            return;
+          }
+        }
         renderTaskModal(await response.text(), taskUrl);
       }
       document.addEventListener('click', async (event) => {
@@ -202,6 +209,7 @@ const { title, section } = Astro.props;
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || form.id === 'task-form') return;
         event.preventDefault();
+        if (form.matches('[data-delete-task]') && !window.confirm('¿Eliminar esta tarea y sus archivos adjuntos? No se podrá deshacer.')) return;
         submitTaskModalForm(form, event.submitter);
       });
     </script>

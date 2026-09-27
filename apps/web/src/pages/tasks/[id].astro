@@ -38,6 +38,10 @@ if (Astro.request.method === 'POST') {
       await api.addTaskAttachment(id, file);
     } else if (intent === 'remove-attachment') {
       await api.removeTaskAttachment(id, String(form.get('attachmentId') ?? ''));
+    } else if (intent === 'delete') {
+      const current = await api.getTask(id);
+      await api.deleteTask(id);
+      return Astro.redirect(current.projectId ? `/projects/${current.projectId}` : '/inbox', 303);
     } else if (intent === 'save') {
       const current = await api.getTask(id);
       const status = String(form.get('status') ?? 'pending') as TaskStatus;
@@ -163,6 +167,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               <form method="post"><button class="button" type="submit" name="intent" value="complete">Completar tarea</button></form>
             )}
             {task.projectId && <form method="post"><button class="button secondary" type="submit" name="intent" value="move-to-inbox">Mover al inbox</button></form>}
+            <form method="post" data-delete-task><button class="button danger" type="submit" name="intent" value="delete">Eliminar tarea</button></form>
           </aside>
           <section class="card attachments">
             <h2>Archivos adjuntos</h2>
@@ -221,6 +226,11 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
   form?.addEventListener('submit', () => {
     if (dueAtIso && dueAt) dueAtIso.value = dueAt.value ? new Date(dueAt.value).toISOString() : '';
     if (startedAtIso && startedAt) startedAtIso.value = startedAt.value ? new Date(startedAt.value).toISOString() : '';
+  });
+  document.querySelector<HTMLFormElement>('[data-delete-task]')?.addEventListener('submit', (event) => {
+    if (!window.confirm('¿Eliminar esta tarea y sus archivos adjuntos? No se podrá deshacer.')) {
+      event.preventDefault();
+    }
   });
 </script>
 

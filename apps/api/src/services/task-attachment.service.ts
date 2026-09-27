@@ -1,18 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { TaskAttachment } from '@nexo/contracts';
 import { TaskRepository } from '../repositories/task.repository.js';
 import { TaskAttachmentRepository } from '../repositories/task-attachment.repository.js';
 import { TaskNotFoundError } from './task.service.js';
+import { attachmentPath, removeStoredAttachments } from './task-attachment-storage.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'application/pdf', 'text/plain']);
 const UPLOAD_DIRECTORY = process.env.NEXO_UPLOADS_DIR ?? 'uploads';
-const EXTENSIONS: Record<string, string> = {
-  'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp',
-  'application/pdf': '.pdf', 'text/plain': '.txt',
-};
 
 export class TaskAttachmentValidationError extends Error {
   constructor(message: string) {
@@ -43,8 +39,7 @@ export class TaskAttachmentService {
     }
 
     const storageKey = randomUUID();
-    const extension = EXTENSIONS[mimeType];
-    const path = join(UPLOAD_DIRECTORY, `${storageKey}${extension}`);
+    const path = attachmentPath({ storageKey, mimeType });
     await mkdir(UPLOAD_DIRECTORY, { recursive: true });
     await writeFile(path, Buffer.from(await file.arrayBuffer()), { flag: 'wx' });
     try {
@@ -65,8 +60,7 @@ export class TaskAttachmentService {
     await this.requireTask(taskId);
     const row = await this.attachmentRepository.find(taskId, attachmentId);
     if (!row) throw new TaskAttachmentValidationError('Archivo adjunto no encontrado.');
-    const extension = EXTENSIONS[row.mimeType];
-    const content = await readFile(join(UPLOAD_DIRECTORY, `${row.storageKey}${extension}`));
+    const content = await readFile(attachmentPath(row));
     const { id, taskId: ownerTaskId, fileName, mimeType, size, createdAt } = row;
     return {
       metadata: { id, taskId: ownerTaskId, fileName, mimeType, size, createdAt: createdAt.toISOString() },
@@ -77,8 +71,7 @@ export class TaskAttachmentService {
   async remove(taskId: string, attachmentId: string): Promise<void> {
     const row = await this.attachmentRepository.delete(taskId, attachmentId);
     if (!row) throw new TaskAttachmentValidationError('Archivo adjunto no encontrado.');
-    const extension = EXTENSIONS[row.mimeType];
-    await unlink(join(UPLOAD_DIRECTORY, `${row.storageKey}${extension}`)).catch(() => undefined);
+    await removeStoredAttachments([row]);
   }
 
   private async requireTask(taskId: string): Promise<void> {

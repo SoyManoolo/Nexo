@@ -100,6 +100,18 @@ export function createNexoMcpServer(
     async ({ id, ...input }) => jsonResult(await api.updateTask(id, input as UpdateTaskInput)),
   );
 
+  server.registerTool(
+    'delete_task',
+    {
+      description: 'Elimina definitivamente una tarea de Nexo y sus archivos adjuntos.',
+      inputSchema: { id: z.string().uuid().describe('UUID de la tarea') },
+    },
+    async ({ id }) => {
+      await api.deleteTask(id);
+      return jsonResult({ deleted: true });
+    },
+  );
+
   return server;
 }
 

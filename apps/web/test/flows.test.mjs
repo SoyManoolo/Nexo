@@ -61,6 +61,12 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
         }
       } else if (task) {
         value = tasks.find((item) => item.id === task[1]);
+        if (value && req.method === 'DELETE') {
+          tasks.splice(tasks.indexOf(value), 1);
+          res.writeHead(204);
+          res.end();
+          return;
+        }
         if (value && req.method === 'PATCH') Object.assign(value, body);
         if (value && task[2] && req.method === 'POST') {
           value.status = task[2] === '/complete' ? 'done' : 'pending';
@@ -151,6 +157,22 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.equal((await submit('/inbox', { intent: 'reopen', taskId: tasks[0].id })).status, 303);
   assert.equal(tasks[0].status, 'pending');
   assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
+
+  const inboxTaskId = tasks[0].id;
+  assert.match(await (await fetch(`${base}/tasks/${inboxTaskId}`)).text(), /Eliminar tarea/);
+  const deletedInboxTask = await submit(`/tasks/${inboxTaskId}`, { intent: 'delete' });
+  assert.equal(deletedInboxTask.status, 303);
+  assert.equal(deletedInboxTask.headers.get('location'), '/inbox');
+  assert.equal(tasks.some((item) => item.id === inboxTaskId), false);
+  assert.doesNotMatch(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
+  assert.ok(calls.some((call) => call.method === 'DELETE' && call.path === `/tasks/${inboxTaskId}`));
+
+  const projectTask = makeTask({ title: 'Tarea del proyecto', projectId: projects[0].id });
+  tasks.push(projectTask);
+  const deletedProjectTask = await submit(`/tasks/${projectTask.id}`, { intent: 'delete' });
+  assert.equal(deletedProjectTask.status, 303);
+  assert.equal(deletedProjectTask.headers.get('location'), `/projects/${projects[0].id}`);
+  assert.equal(tasks.some((item) => item.id === projectTask.id), false);
 
   const archived = await submit(`/projects/${projects[0].id}`, { intent: 'archive' });
   assert.equal(archived.status, 303);

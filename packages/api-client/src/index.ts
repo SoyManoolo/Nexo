@@ -84,6 +84,7 @@ export class NexoApiClient {
   async listTasks(filters: ListTasksQuery = {}): Promise<Task[]> { return this.request('/tasks', { method: 'GET', query: ListTasksQuerySchema.parse(filters) }, z.array(TaskSchema)); }
   async getTask(id: string): Promise<Task> { return this.request(`/tasks/${encodeURIComponent(id)}`, { method: 'GET' }, TaskSchema); }
   async updateTask(id: string, input: UpdateTaskInput): Promise<Task> { return this.request(`/tasks/${encodeURIComponent(id)}`, { method: 'PATCH', body: UpdateTaskInputSchema.parse(input) }, TaskSchema); }
+  async deleteTask(id: string): Promise<void> { return this.requestEmpty(`/tasks/${encodeURIComponent(id)}`, 'DELETE'); }
   async completeTask(id: string): Promise<Task> { return this.taskAction(id, 'complete'); }
   async reopenTask(id: string): Promise<Task> { return this.taskAction(id, 'reopen'); }
   async moveTaskToInbox(id: string): Promise<Task> { return this.taskAction(id, 'move-to-inbox'); }

@@ -97,6 +97,10 @@ class TestTaskRepository extends TaskRepository {
     this.items.set(id, updated);
     return updated;
   }
+
+  override async delete(id: string): Promise<[] | null> {
+    return this.items.delete(id) ? [] : null;
+  }
 }
 
 function setup() {
@@ -194,4 +198,19 @@ test('GET /tasks/:id returns 404 for a valid but missing UUID', async () => {
   assert.equal(response.status, 404);
   assert.equal((await response.json()).error, 'not_found');
   assert.equal(await taskRepository.findById(MISSING_ID), null);
+});
+
+test('DELETE /tasks/:id removes a task and distinguishes invalid or missing IDs', async () => {
+  const { app, taskRepository } = setup();
+  const created = await app.request('/tasks', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'Delete me' }),
+  });
+  const { id } = await created.json() as Task;
+
+  assert.equal((await app.request(`/tasks/${id}`, { method: 'DELETE' })).status, 204);
+  assert.equal(await taskRepository.findById(id), null);
+  assert.equal((await app.request(`/tasks/${id}`, { method: 'DELETE' })).status, 404);
+  assert.equal((await app.request('/tasks/not-a-uuid', { method: 'DELETE' })).status, 400);
 });

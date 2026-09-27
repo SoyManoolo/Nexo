@@ -287,6 +287,15 @@ POST /tasks/550e8400-e29b-41d4-a716-446655440003/reopen
 POST /tasks/550e8400-e29b-41d4-a716-446655440003/move-to-inbox
 ```
 
+### `DELETE /tasks/:id`
+
+Elimina definitivamente la tarea y sus archivos adjuntos. Devuelve `204` sin cuerpo; un UUID
+inválido devuelve `400` y una tarea inexistente devuelve `404`.
+
+```http
+DELETE /tasks/550e8400-e29b-41d4-a716-446655440003
+```
+
 ### Archivos adjuntos
 
 `GET /tasks/:id/attachments` lista los archivos; `POST /tasks/:id/attachments` recibe un formulario
