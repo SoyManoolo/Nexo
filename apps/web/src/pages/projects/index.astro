@@ -141,7 +141,7 @@ for (const task of tasks) {
           ))}
         </ul>
     </section>
-    <dialog class="project-modal" id="project-modal" aria-labelledby="create-project-heading" open={submittedForm?.get('intent') === 'create-project'}>
+    <dialog class="project-modal" id="project-modal" aria-labelledby="create-project-heading" data-auto-open={submittedForm?.get('intent') === 'create-project' ? 'true' : undefined}>
       <form method="post" class="form-grid">
         <input type="hidden" name="intent" value="create-project" />
         <div class="modal-header"><h2 id="create-project-heading">Nuevo proyecto</h2><button class="modal-close" type="button" id="close-project-modal" aria-label="Cerrar">×</button></div>
@@ -151,7 +151,7 @@ for (const task of tasks) {
         <div class="modal-actions"><button class="button secondary" type="button" id="cancel-project-modal">Cancelar</button><button class="button" type="submit">Crear proyecto</button></div>
       </form>
     </dialog>
-    <dialog class="project-modal" id="github-modal" aria-labelledby="github-import-heading" open={showGithubImport || submittedForm?.get('intent') === 'import-github'}>
+    <dialog class="project-modal" id="github-modal" aria-labelledby="github-import-heading" data-auto-open={showGithubImport || submittedForm?.get('intent') === 'import-github' ? 'true' : undefined}>
       <form method="post" class="form-grid">
         <input type="hidden" name="intent" value="import-github" />
         <div class="modal-header"><h2 id="github-import-heading">Elige un repositorio</h2><a class="modal-close" href="/projects" aria-label="Cerrar">×</a></div>
@@ -171,9 +171,12 @@ for (const task of tasks) {
 
 <script>
   const projectModal = document.querySelector<HTMLDialogElement>('#project-modal');
+  const githubModal = document.querySelector<HTMLDialogElement>('#github-modal');
   const openProjectModal = document.querySelector<HTMLButtonElement>('#open-project-modal');
   const closeProjectModal = document.querySelector<HTMLButtonElement>('#close-project-modal');
   const cancelProjectModal = document.querySelector<HTMLButtonElement>('#cancel-project-modal');
+  if (projectModal?.dataset.autoOpen === 'true') projectModal.showModal();
+  if (githubModal?.dataset.autoOpen === 'true') githubModal.showModal();
   openProjectModal?.addEventListener('click', () => projectModal?.showModal());
   closeProjectModal?.addEventListener('click', () => projectModal?.close());
   cancelProjectModal?.addEventListener('click', () => projectModal?.close());
