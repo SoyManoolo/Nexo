@@ -574,8 +574,8 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .activity-heading { margin-bottom: 1rem; }
   .activity-list { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; }
   .activity-list li { display: grid; grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr); gap: 1rem; border-top: 1px solid var(--border); padding: 0.8rem 0; }
-  .activity-list li > div { display: grid; gap: 0.2rem; }
-  .activity-list a { color: var(--accent-text); }
+  .activity-list li > div { display: grid; gap: 0.2rem; min-width: 0; }
+  .activity-list a { color: var(--accent-text); overflow-wrap: anywhere; }
   .activity-hint { margin-bottom: 0; }
   .github-error { color: #9b382c !important; }
   .project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.65rem; }
@@ -612,5 +612,13 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .archive-panel p { color: #58665c; line-height: 1.5; }
   .delete-panel { border-top: 1px solid #dce2da; padding: 1rem 1.25rem 1.25rem; }
   @media (max-width: 800px) { .recent-updates { grid-template-columns: 1fr; } }
-  @media (max-width: 600px) { .project-actions, .tasks-header, .task-link, .filters, .summary-heading, .activity-heading { flex-direction: column; align-items: stretch; } .view-switcher { align-self: flex-start; } .quick-fields { grid-template-columns: 1fr; } .summary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .activity-list li { grid-template-columns: 1fr; gap: 0.25rem; } }
+  @media (max-width: 600px) {
+    .project-actions, .tasks-header, .task-link, .filters, .summary-heading, .activity-heading { flex-direction: column; align-items: stretch; }
+    .filters .field { flex: 1 1 auto; width: 100%; }
+    .task-board { grid-template-columns: minmax(0, 1fr); min-height: 0; overflow: visible; }
+    .view-switcher { align-self: flex-start; }
+    .quick-fields { grid-template-columns: 1fr; }
+    .summary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .activity-list li { grid-template-columns: 1fr; gap: 0.25rem; }
+  }
 </style>
