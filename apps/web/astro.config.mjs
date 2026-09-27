@@ -10,5 +10,12 @@ if (process.env.WEB_ALLOWED_HOSTNAME) {
 export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   output: 'server',
-  security: { allowedDomains },
+  security: {
+    allowedDomains: [
+      { hostname: 'localhost' },
+      { hostname: '127.0.0.1' },
+      { hostname: '192.168.1.107' },
+      { hostname: '100.64.0.1' },
+    ],
+  },
 });
