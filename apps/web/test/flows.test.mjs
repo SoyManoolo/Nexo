@@ -63,6 +63,13 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
       const task = /^\/tasks\/([^/]+)(\/complete|\/reopen|\/restore)?$/.exec(url.pathname);
       if (project) {
         value = projects.find((item) => item.id === project[1]);
+        if (value && req.method === 'DELETE') {
+          projects.splice(projects.indexOf(value), 1);
+          for (const task of tasks) if (task.projectId === project[1]) task.projectId = null;
+          res.writeHead(204);
+          res.end();
+          return;
+        }
         if (value && project[2] && req.method === 'POST') {
           value.status = project[2] === '/archive' ? 'archived' : 'active';
           value.archivedAt = project[2] === '/archive' ? now : null;
@@ -127,6 +134,10 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.equal(created.headers.get('location'), '/projects');
   const projectsPage = await (await fetch(`${base}/projects`)).text();
   assert.match(projectsPage, /Proyecto de prueba/);
+  assert.match(projectsPage, /aria-label="Opciones de Proyecto de prueba"/);
+  assert.match(projectsPage, /data-project-action="archive"/);
+  assert.match(projectsPage, /data-project-action="delete"/);
+  assert.match(projectsPage, /name="confirmName"/);
   assert.match(projectsPage, /class="project-header-actions"[\s\S]*Crear proyecto[\s\S]*Importar desde GitHub/);
   assert.deepEqual(calls.find((call) => call.method === 'POST' && call.path === '/projects').body,
     { name: 'Proyecto de prueba', description: 'Descripción', color: '#4d8564' });
@@ -158,6 +169,8 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.match(home, /addEventListener\('click'/);
   assert.match(home, /\.app-shell\.is-collapsed/);
   assert.match(home, /class="dashboard-grid"/);
+  assert.match(home, /--calendar-weeks: 5/);
+  assert.match(await (await fetch(`${base}/?date=2026-08-01`)).text(), /data-weeks="6"/);
   assert.match(home, /Tarea capturada, programada/);
   assert.match(home, /Tarea capturada, fecha límite/);
   assert.match(home, /Las 3 tareas más nuevas/);
@@ -208,7 +221,10 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.deepEqual(calls.find((call) => call.method === 'POST' && call.path === '/tasks' && call.body.title === 'Tarea con imagen').body.tags, ['diseño', 'urgente']);
   assert.ok(calls.some((call) => call.method === 'POST' && /\/tasks\/[^/]+\/attachments$/.test(call.path) && call.body.includes('capture.png')));
 
-  const archived = await submit(`/projects/${projects[0].id}`, { intent: 'archive' });
+  const unconfirmedArchive = await submit(`/projects/${projects[0].id}`, { intent: 'archive' });
+  assert.equal(unconfirmedArchive.status, 400);
+  assert.equal(projects[0].status, 'active');
+  const archived = await submit(`/projects/${projects[0].id}`, { intent: 'archive', confirmName: projects[0].name });
   assert.equal(archived.status, 303);
   assert.equal(archived.headers.get('location'), '/projects?status=archived');
   assert.equal(projects[0].status, 'archived');
@@ -224,4 +240,22 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.match(await (await fetch(`${base}/projects`)).text(), /Proyecto de prueba/);
   assert.doesNotMatch(await (await fetch(`${base}/projects?status=archived`)).text(), /Proyecto de prueba/);
   assert.ok(calls.some((call) => call.method === 'POST' && call.path === `/projects/${projects[0].id}/restore`));
+
+  const second = await submit('/projects', { name: 'Para eliminar', description: '', color: '#4d8564' });
+  assert.equal(second.status, 303);
+  const secondId = projects[1].id;
+  const unconfirmedListArchive = await submit('/projects', { intent: 'archive-project', projectId: secondId, confirmName: 'Otro nombre' });
+  assert.equal(unconfirmedListArchive.status, 400);
+  assert.equal(projects[1].status, 'active');
+  const listArchived = await submit('/projects', { intent: 'archive-project', projectId: secondId, confirmName: 'Para eliminar' });
+  assert.equal(listArchived.status, 303);
+  assert.equal(projects[1].status, 'archived');
+  const unconfirmedDelete = await submit('/projects', { intent: 'delete-project', projectId: secondId, confirmName: 'Otro nombre' });
+  assert.equal(unconfirmedDelete.status, 400);
+  assert.ok(projects.some((item) => item.id === secondId));
+  const deleted = await submit('/projects?status=archived', { intent: 'delete-project', projectId: secondId, confirmName: 'Para eliminar' });
+  assert.equal(deleted.status, 303);
+  assert.equal(deleted.headers.get('location'), '/projects?status=archived');
+  assert.ok(!projects.some((item) => item.id === secondId));
+  assert.ok(calls.some((call) => call.method === 'DELETE' && call.path === `/projects/${secondId}`));
 });

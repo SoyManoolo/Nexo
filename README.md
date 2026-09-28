@@ -134,12 +134,13 @@ Si PostgreSQL local usa otras credenciales o puerto, actualiza `DATABASE_URL` en
 ```sh
 pnpm dev                 # Web Astro en desarrollo (Linux/macOS)
 pnpm dev:api             # API HTTP en desarrollo (Linux/macOS)
-pnpm check
-pnpm build
-pnpm --filter @nexo/web test
-pnpm --filter @nexo/api test
-pnpm --filter @nexo/api-client test
+pnpm verify
 ```
+
+`pnpm verify` ejecuta la comprobación de tipos, todas las pruebas y la compilación.
+`pnpm install` configura el hook versionado `.githooks/pre-push` en este clon;
+el hook ejecuta `pnpm verify` antes de enviar cambios. GitHub Actions repite
+la misma verificación en cada push y pull request.
 
 En PowerShell, sustituye `pnpm` por `pnpm.cmd` si la política de ejecución bloquea el script `pnpm.ps1`.
 

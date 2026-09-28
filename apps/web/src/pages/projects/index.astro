@@ -34,11 +34,27 @@ if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   submittedForm = form;
   try {
-    if (form.get('intent') === 'restore-project') {
+    const intent = String(form.get('intent') ?? '');
+    if (intent === 'archive-project' || intent === 'delete-project') {
+      const api = createApiClient();
+      const projectId = String(form.get('projectId') ?? '');
+      const project = await api.getProject(projectId);
+      if (String(form.get('confirmName') ?? '') !== project.name) {
+        throw new RangeError('Escribe el nombre exacto del proyecto para confirmar.');
+      }
+      if (intent === 'archive-project') {
+        if (project.status !== 'active') throw new Error('El proyecto ya está archivado.');
+        await api.archiveProject(projectId);
+        return Astro.redirect('/projects?status=archived', 303);
+      }
+      await api.deleteProject(projectId);
+      return Astro.redirect(showArchived ? '/projects?status=archived' : '/projects', 303);
+    }
+    if (intent === 'restore-project') {
       await createApiClient().restoreProject(String(form.get('projectId') ?? ''));
       return Astro.redirect('/projects', 303);
     }
-    if (form.get('intent') === 'import-github') {
+    if (intent === 'import-github') {
       const repository = String(form.get('repository') ?? '');
       const project = await createApiClient().importGithubProject({ repositoryUrl: `https://github.com/${repository}` });
       return Astro.redirect(`/projects/${project.id}`, 303);
@@ -50,9 +66,10 @@ if (Astro.request.method === 'POST') {
     });
     return Astro.redirect('/projects', 303);
   } catch (error) {
-    console.error('No se pudo crear el proyecto:', error);
-    const failure = formError(error, 'No se pudo crear el proyecto. Revisa los datos e inténtalo de nuevo.');
+    console.error('No se pudo guardar el proyecto:', error);
+    const failure = formError(error, 'No se pudo guardar el proyecto. Revisa los datos e inténtalo de nuevo.');
     errorMessage = failure.message;
+    if (error instanceof RangeError) errorMessage = error.message;
     Astro.response.status = failure.status;
   }
 }
@@ -94,6 +111,8 @@ else {
 if (loadErrors.length > 0) errorMessage ??= [...new Set(loadErrors)].join(' ');
 
 const visibleProjects = showArchived ? archived : projects;
+const attemptedAction = String(submittedForm?.get('intent') ?? '');
+const actionProject = [...projects, ...archived].find((project) => project.id === submittedForm?.get('projectId'));
 const taskSummariesByProject = new Map<string, { total: number; completed: number; blocked: number; overdue: number }>();
 for (const task of tasks) {
   if (!task.projectId) continue;
@@ -148,6 +167,13 @@ for (const task of tasks) {
                 <input type="hidden" name="projectId" value={project.id} />
                 <button class="button secondary" type="submit" aria-label={`Restaurar ${project.name}`}>Restaurar</button>
               </form>}
+              <details class="project-menu">
+                <summary aria-label={`Opciones de ${project.name}`} title={`Opciones de ${project.name}`}>⋯</summary>
+                <div class="project-menu-options">
+                  {project.status === 'active' && <button type="button" data-project-action="archive" data-project-id={project.id} data-project-name={project.name}>Archivar proyecto</button>}
+                  <button type="button" data-project-action="delete" data-project-id={project.id} data-project-name={project.name}>Eliminar proyecto</button>
+                </div>
+              </details>
             </li>
           ))}
         </ul>
@@ -160,6 +186,18 @@ for (const task of tasks) {
             <label class="field">Descripción <textarea name="description" maxlength="2000">{formValue(submittedForm, 'description')}</textarea></label>
             <label class="field">Color <input name="color" type="color" value={formValue(submittedForm, 'color', '#4d8564')} /></label>
         <div class="modal-actions"><button class="button secondary" type="button" id="cancel-project-modal">Cancelar</button><button class="button" type="submit">Crear proyecto</button></div>
+      </form>
+    </dialog>
+    <dialog class="project-modal" id="project-action-modal" aria-labelledby="project-action-title" data-auto-open={['archive-project', 'delete-project'].includes(attemptedAction) ? 'true' : undefined}>
+      <form method="post" class="form-grid" id="project-action-form">
+        <input type="hidden" name="intent" id="project-action-intent" value={formValue(submittedForm, 'intent')} />
+        <input type="hidden" name="projectId" id="project-action-id" value={formValue(submittedForm, 'projectId')} />
+        <div class="modal-header"><h2 id="project-action-title">{attemptedAction === 'archive-project' ? 'Archivar proyecto' : attemptedAction === 'delete-project' ? 'Eliminar proyecto' : 'Confirmar acción'}</h2><button class="modal-close" type="button" id="close-project-action-modal" aria-label="Cerrar">×</button></div>
+        <p id="project-action-description">{attemptedAction === 'archive-project' ? 'Podrás restaurar el proyecto más adelante.' : attemptedAction === 'delete-project' ? 'Las tareas pasarán al inbox. Esta acción no se puede deshacer.' : ''}</p>
+        <label class="field">Escribe el nombre exacto del proyecto: <strong id="project-action-name">{actionProject?.name}</strong>
+          <input name="confirmName" id="project-action-confirm-name" required autocomplete="off" value={formValue(submittedForm, 'confirmName')} />
+        </label>
+        <div class="modal-actions"><button class="button secondary" type="button" id="cancel-project-action-modal">Cancelar</button><button class="button danger" type="submit" id="confirm-project-action">{attemptedAction === 'archive-project' ? 'Archivar proyecto' : attemptedAction === 'delete-project' ? 'Eliminar proyecto' : 'Confirmar'}</button></div>
       </form>
     </dialog>
     <dialog class="project-modal" id="github-modal" aria-labelledby="github-import-heading" data-auto-open={showGithubImport || submittedForm?.get('intent') === 'import-github' ? 'true' : undefined}>
@@ -186,11 +224,39 @@ for (const task of tasks) {
   const openProjectModal = document.querySelector<HTMLButtonElement>('#open-project-modal');
   const closeProjectModal = document.querySelector<HTMLButtonElement>('#close-project-modal');
   const cancelProjectModal = document.querySelector<HTMLButtonElement>('#cancel-project-modal');
+  const actionModal = document.querySelector<HTMLDialogElement>('#project-action-modal');
+  const actionIntent = document.querySelector<HTMLInputElement>('#project-action-intent');
+  const actionId = document.querySelector<HTMLInputElement>('#project-action-id');
+  const actionName = document.querySelector<HTMLElement>('#project-action-name');
+  const actionInput = document.querySelector<HTMLInputElement>('#project-action-confirm-name');
+  const actionTitle = document.querySelector<HTMLElement>('#project-action-title');
+  const actionDescription = document.querySelector<HTMLElement>('#project-action-description');
+  const actionSubmit = document.querySelector<HTMLButtonElement>('#confirm-project-action');
   if (projectModal?.dataset.autoOpen === 'true') projectModal.showModal();
   if (githubModal?.dataset.autoOpen === 'true') githubModal.showModal();
+  if (actionModal?.dataset.autoOpen === 'true') actionModal.showModal();
   openProjectModal?.addEventListener('click', () => projectModal?.showModal());
   closeProjectModal?.addEventListener('click', () => projectModal?.close());
   cancelProjectModal?.addEventListener('click', () => projectModal?.close());
+  document.querySelectorAll<HTMLButtonElement>('[data-project-action]').forEach((button) => button.addEventListener('click', () => {
+    const action = button.dataset.projectAction;
+    const name = button.dataset.projectName ?? '';
+    if (!actionIntent || !actionId || !actionName || !actionInput || !actionTitle || !actionDescription || !actionSubmit) return;
+    actionIntent.value = `${action}-project`;
+    actionId.value = button.dataset.projectId ?? '';
+    actionName.textContent = name;
+    actionInput.value = '';
+    actionTitle.textContent = action === 'archive' ? 'Archivar proyecto' : 'Eliminar proyecto';
+    actionDescription.textContent = action === 'archive'
+      ? 'Podrás restaurar el proyecto más adelante.'
+      : 'Las tareas pasarán al inbox. Esta acción no se puede deshacer.';
+    actionSubmit.textContent = action === 'archive' ? 'Archivar proyecto' : 'Eliminar proyecto';
+    button.closest('details')?.removeAttribute('open');
+    actionModal?.showModal();
+    actionInput.focus();
+  }));
+  document.querySelector('#close-project-action-modal')?.addEventListener('click', () => actionModal?.close());
+  document.querySelector('#cancel-project-action-modal')?.addEventListener('click', () => actionModal?.close());
 </script>
 
 <style>
@@ -202,6 +268,12 @@ for (const task of tasks) {
   .project-item { display: flex; align-items: center; gap: 0.65rem; }
   .project { display: flex; flex: 1; min-width: 0; align-items: center; gap: 0.9rem; text-decoration: none; }
   .restore-project-form { flex: none; }
+  .project-menu { position: relative; flex: none; }
+  .project-menu summary { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid var(--border); border-radius: 0.6rem; background: var(--surface); color: var(--text); font-size: 1.5rem; line-height: 1; cursor: pointer; list-style: none; }
+  .project-menu summary::-webkit-details-marker { display: none; }
+  .project-menu-options { position: absolute; z-index: 2; right: 0; top: calc(100% + 0.3rem); min-width: 12rem; border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.3rem; background: var(--surface); box-shadow: 0 0.6rem 1.4rem rgb(0 0 0 / 0.15); }
+  .project-menu-options button { display: block; width: 100%; border: 0; border-radius: 0.35rem; padding: 0.6rem; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+  .project-menu-options button:hover { background: var(--accent-soft); }
   .project:hover { border-color: #7faa8c; }
   .project span:nth-child(2) { flex: 1; min-width: 0; }
   .project strong, .project small { display: block; }
@@ -218,7 +290,8 @@ for (const task of tasks) {
   .modal-close:hover { background: #edf5ee; color: #27583b; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
   @media (max-width: 600px) {
-    .project-item { align-items: stretch; flex-direction: column; }
+    .project-item { align-items: stretch; flex-wrap: wrap; }
+    .project-menu { margin-left: auto; }
     .restore-project-form .button { width: 100%; }
     .project { display: grid; grid-template-columns: 0.8rem minmax(0, 1fr) auto; align-items: start; gap: 0.65rem 0.75rem; }
     .project > span:nth-child(2) { grid-column: 2; grid-row: 1; min-width: 0; overflow-wrap: anywhere; }

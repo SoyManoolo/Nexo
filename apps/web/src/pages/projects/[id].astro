@@ -66,12 +66,16 @@ if (Astro.request.method === 'POST') {
         githubRepository: currentProject.githubRepository ?? (String(form.get('githubRepository') ?? '') || null),
       });
     } else if (intent === 'archive') {
+      const currentProject = await api.getProject(id);
+      if (String(form.get('confirmName') ?? '') !== currentProject.name) throw new RangeError('Escribe el nombre exacto del proyecto para confirmar.');
       await api.archiveProject(id);
       return Astro.redirect('/projects?status=archived', 303);
     } else if (intent === 'restore') {
       await api.restoreProject(id);
       return Astro.redirect(`/projects/${id}`, 303);
     } else if (intent === 'delete') {
+      const currentProject = await api.getProject(id);
+      if (String(form.get('confirmName') ?? '') !== currentProject.name) throw new RangeError('Escribe el nombre exacto del proyecto para confirmar.');
       await api.deleteProject(id);
       return Astro.redirect('/projects', 303);
     } else if (intent === 'move-task') {
@@ -119,6 +123,7 @@ if (Astro.request.method === 'POST') {
       return Response.json({ error: failure.message }, { status: failure.status });
     }
     errorMessage = failure.message;
+    if (error instanceof RangeError) errorMessage = error.message;
     Astro.response.status = failure.status;
   }
 }
@@ -382,11 +387,13 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
             <details class="archive-panel">
               <summary>Archivar proyecto</summary>
               <p>Seguirás pudiendo consultarlo en la lista de archivados.</p>
-              <form method="post"><button class="button danger" name="intent" value="archive" type="submit">Confirmar archivado</button></form>
+              <form method="post" class="form-grid"><label class="field">Escribe «{project.name}» para confirmar<input name="confirmName" required autocomplete="off" /></label><button class="button danger" name="intent" value="archive" type="submit">Confirmar archivado</button></form>
             </details>
           )}
-          <form method="post" class="delete-panel" onsubmit="return confirm('¿Eliminar este proyecto? Las tareas se moverán al inbox y no se podrá deshacer.')">
+          <form method="post" class="delete-panel form-grid">
             <input type="hidden" name="intent" value="delete" />
+            <p>Las tareas pasarán al inbox. Esta acción no se puede deshacer.</p>
+            <label class="field">Escribe «{project.name}» para confirmar<input name="confirmName" required autocomplete="off" /></label>
             <button class="button danger" type="submit">Eliminar proyecto</button>
           </form>
         </dialog>
