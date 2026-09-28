@@ -60,6 +60,7 @@ try {
 }
 
 const projectNames = new Map(projects.map((project) => [project.id, project.name]));
+const searchTags = [...new Set(tasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b, 'es'));
 const normalizedSearch = searchQuery.toLocaleLowerCase('es');
 const searchedTasks = tasks.filter((task) => {
   if (validStatuses.includes(searchStatus) && task.status !== searchStatus) return false;
@@ -79,6 +80,10 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
   const deadline = task.dueAt !== null && localDay.format(new Date(task.dueAt)) === day;
   return planned || deadline ? [{ task, kind: planned && deadline ? 'both' : planned ? 'planned' : 'deadline' }] : [];
 });
+const searchIndex = JSON.stringify({
+  projects: projects.map((project) => ({ id: project.id, name: project.name, searchable: `${project.name} ${project.description ?? ''} ${project.notes ?? ''}`.toLocaleLowerCase('es') })),
+  tasks: tasks.map((task) => ({ id: task.id, title: task.title, status: task.status, statusLabel: TaskStatusLabels[task.status], priority: task.priority, projectId: task.projectId, projectName: projectNames.get(task.projectId ?? '') ?? 'Inbox', tags: task.tags, searchable: [task.title, task.notes ?? '', task.blockedReason ?? '', ...task.tags, projectNames.get(task.projectId ?? '') ?? ''].join(' ').toLocaleLowerCase('es') })),
+}).replace(/</g, '\\u003c');
 ---
 
 <AppLayout title="Inicio · Nexo" section="home">
@@ -87,21 +92,22 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/">Volver a intentar</a></div>}
 
     <section class:list={['home-search card', { 'has-results': hasSearch }]} aria-label="Búsqueda global">
-      <form method="get" class="home-search-form">
+      <form method="get" class="home-search-form" id="home-search-form" role="search">
         <label class="field search-query">Buscar tareas o proyectos <input name="q" type="search" value={searchQuery} placeholder="Nombre, nota o etiqueta" /></label>
         <label class="field">Estado <select name="status"><option value="">Todos</option>{validStatuses.map((value) => <option value={value} selected={searchStatus === value}>{TaskStatusLabels[value as Task['status']]}</option>)}</select></label>
         <label class="field">Prioridad <select name="priority"><option value="">Todas</option>{validPriorities.map((value) => <option value={value} selected={searchPriority === value}>{value === 'high' ? 'Alta' : value === 'medium' ? 'Media' : 'Baja'}</option>)}</select></label>
         <label class="field">Proyecto <select name="project"><option value="">Todos</option>{projects.map((project) => <option value={project.id} selected={searchProject === project.id}>{project.name}</option>)}</select></label>
-        <label class="field">Etiqueta <input name="tag" value={searchTag} maxlength="40" placeholder="Exacta" /></label>
+        <label class="field">Etiqueta <select name="tag"><option value="">Todas</option>{searchTags.map((tag) => <option value={tag} selected={searchTag === tag}>{tag}</option>)}</select></label>
         <button class="button" type="submit">Buscar</button>
       </form>
-      {hasSearch && <div class="home-search-results">
+      <div class="home-search-results" id="home-search-results" hidden={!hasSearch} aria-live="polite">
         <h2>Resultados</h2>
         <div class="search-result-groups">
-          <section><h3>Proyectos ({searchedProjects.length})</h3>{searchedProjects.length ? <ul>{searchedProjects.slice(0, 5).map((project) => <li><a href={`/projects/${project.id}`}>{project.name}</a></li>)}</ul> : <p class="empty">No hay proyectos coincidentes.</p>}</section>
-          <section><h3>Tareas ({searchedTasks.length})</h3>{searchedTasks.length ? <ul>{searchedTasks.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · {TaskStatusLabels[task.status]}{task.tags.length ? ` · ${task.tags.join(', ')}` : ''}</small></a></li>)}</ul> : <p class="empty">No hay tareas coincidentes.</p>}</section>
+          <section><h3 id="project-results-title">Proyectos ({searchedProjects.length})</h3><ul id="project-results">{searchedProjects.slice(0, 5).map((project) => <li><a href={`/projects/${project.id}`}>{project.name}</a></li>)}</ul><p class="empty" id="no-project-results" hidden={searchedProjects.length > 0}>No hay proyectos coincidentes.</p></section>
+          <section><h3 id="task-results-title">Tareas ({searchedTasks.length})</h3><ul id="task-results">{searchedTasks.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · {TaskStatusLabels[task.status]}{task.tags.length ? ` · ${task.tags.join(', ')}` : ''}</small></a></li>)}</ul><p class="empty" id="no-task-results" hidden={searchedTasks.length > 0}>No hay tareas coincidentes.</p></section>
         </div>
-      </div>}
+      </div>
+      <script type="application/json" id="search-index" set:html={searchIndex} />
     </section>
 
     <div class="dashboard-grid">
@@ -150,6 +156,65 @@ const eventsFor = (day: string) => tasks.flatMap((task) => {
     </div>
   </main>
 </AppLayout>
+
+<script>
+  interface SearchProject { id: string; name: string; searchable: string; }
+  interface SearchTask { id: string; title: string; status: string; statusLabel: string; priority: string; projectId: string | null; projectName: string; tags: string[]; searchable: string; }
+  const searchForm = document.querySelector<HTMLFormElement>('#home-search-form');
+  const searchResults = document.querySelector<HTMLElement>('#home-search-results');
+  const searchData = JSON.parse(document.querySelector('#search-index')?.textContent ?? '{"projects":[],"tasks":[]}') as { projects: SearchProject[]; tasks: SearchTask[] };
+  const field = (name: string) => (searchForm?.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null)?.value.trim() ?? '';
+  const addResult = (list: HTMLElement | null, url: string, title: string, detail?: string) => {
+    const item = document.createElement('li');
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    anchor.append(strong);
+    if (detail) { const small = document.createElement('small'); small.textContent = detail; anchor.append(small); }
+    item.append(anchor);
+    list?.append(item);
+  };
+  const updateSearch = () => {
+    const q = field('q').toLocaleLowerCase('es');
+    const status = field('status');
+    const priority = field('priority');
+    const projectId = field('project');
+    const tag = field('tag').toLocaleLowerCase('es');
+    const active = Boolean(q || status || priority || projectId || tag);
+    if (searchResults) searchResults.hidden = !active;
+    searchForm?.closest('.home-search')?.classList.toggle('has-results', active);
+    const url = new URL(location.href);
+    for (const name of ['q', 'status', 'priority', 'project', 'tag']) {
+      const value = field(name);
+      if (value) url.searchParams.set(name, value);
+      else url.searchParams.delete(name);
+    }
+    history.replaceState(null, '', url);
+    if (!active) return;
+    const projects = searchData.projects.filter((item) => !q || item.searchable.includes(q));
+    const tasks = searchData.tasks.filter((item) =>
+      (!q || item.searchable.includes(q)) && (!status || item.status === status) &&
+      (!priority || item.priority === priority) && (!projectId || item.projectId === projectId) &&
+      (!tag || item.tags.some((value) => value.toLocaleLowerCase('es') === tag)));
+    const projectList = document.querySelector<HTMLElement>('#project-results');
+    const taskList = document.querySelector<HTMLElement>('#task-results');
+    projectList?.replaceChildren();
+    taskList?.replaceChildren();
+    projects.slice(0, 5).forEach((item) => addResult(projectList, `/projects/${item.id}`, item.name));
+    tasks.slice(0, 8).forEach((item) => addResult(taskList, `/tasks/${item.id}`, item.title, `${item.projectName} · ${item.statusLabel}${item.tags.length ? ` · ${item.tags.join(', ')}` : ''}`));
+    const projectTitle = document.querySelector('#project-results-title');
+    const taskTitle = document.querySelector('#task-results-title');
+    if (projectTitle) projectTitle.textContent = `Proyectos (${projects.length})`;
+    if (taskTitle) taskTitle.textContent = `Tareas (${tasks.length})`;
+    const noProjects = document.querySelector<HTMLElement>('#no-project-results');
+    const noTasks = document.querySelector<HTMLElement>('#no-task-results');
+    if (noProjects) noProjects.hidden = projects.length > 0;
+    if (noTasks) noTasks.hidden = tasks.length > 0;
+  };
+  searchForm?.addEventListener('input', updateSearch);
+  searchForm?.addEventListener('change', updateSearch);
+</script>
 
 <style>
   .home-search { margin-bottom: 1rem; }
