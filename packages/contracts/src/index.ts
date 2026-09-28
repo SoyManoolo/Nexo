@@ -19,7 +19,7 @@ export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
  * - `in_progress`: tarea que estás ejecutando.
  * - `in_review`: tarea pendiente de revisión.
  * - `blocked`: necesita algo externo y exige `blockedReason`.
- * - `done`: completada y exige `completedAt`.
+ * - `done`: completada; el servidor asigna `completedAt` si falta.
  */
 export const TaskStatusSchema = z.enum(['pending', 'in_progress', 'in_review', 'done', 'blocked']);
 
@@ -69,14 +69,6 @@ function validateTaskState(input: TaskStateInput, context: z.RefinementCtx): voi
       code: z.ZodIssueCode.custom,
       path: ['blockedReason'],
       message: 'Blocked tasks require a reason',
-    });
-  }
-
-  if (input.status === 'done' && !input.completedAt) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['completedAt'],
-      message: 'Done tasks require completedAt',
     });
   }
 

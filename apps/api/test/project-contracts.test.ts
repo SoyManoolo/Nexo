@@ -94,9 +94,9 @@ test('CreateTaskInputSchema accepts and normalizes a valid task', () => {
   );
 });
 
-test('CreateTaskInputSchema enforces blocked and done state requirements', () => {
+test('CreateTaskInputSchema enforces blocked state and allows automatic completion dates', () => {
   assert.throws(() => CreateTaskInputSchema.parse({ title: 'Blocked', status: 'blocked' }));
-  assert.throws(() => CreateTaskInputSchema.parse({ title: 'Done', status: 'done' }));
+  assert.equal(CreateTaskInputSchema.parse({ title: 'Done', status: 'done' }).completedAt, undefined);
   assert.throws(() =>
     CreateTaskInputSchema.parse({ title: 'Active', status: 'in_review', completedAt: '2026-09-22T10:00:00.000Z' }),
   );

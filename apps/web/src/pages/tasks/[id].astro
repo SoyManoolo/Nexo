@@ -62,7 +62,7 @@ if (Astro.request.method === 'POST') {
         dueAt: dueAt ? dueAtIso || new Date(dueAt).toISOString() : null,
         startedAt: startedAt ? startedAtIso || new Date(startedAt).toISOString() : null,
         blockedReason: status === 'blocked' ? String(form.get('blockedReason') ?? '') : null,
-        completedAt: status === 'done' ? current.completedAt ?? new Date().toISOString() : null,
+        completedAt: status === 'done' ? current.completedAt : null,
       });
     } else {
       throw new Error('Acción desconocida');

@@ -191,6 +191,28 @@ test('POST /tasks rejects a blocked task without a reason', async () => {
   assert.equal(response.status, 400);
 });
 
+test('POST and PATCH /tasks assign completedAt when status becomes done', async () => {
+  const { app } = setup();
+  const created = await app.request('/tasks', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'Already done', status: 'done' }),
+  });
+  assert.equal(created.status, 201);
+  const first = await created.json() as Task;
+  assert.equal(first.status, 'done');
+  assert.ok(first.completedAt);
+
+  const pending = await app.request('/tasks', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Complete later' }),
+  });
+  const { id } = await pending.json() as Task;
+  const updated = await app.request(`/tasks/${id}`, {
+    method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'done' }),
+  });
+  assert.equal(updated.status, 200);
+  assert.ok((await updated.json() as Task).completedAt);
+});
+
 test('GET /tasks/:id returns 404 for a valid but missing UUID', async () => {
   const { app, taskRepository } = setup();
   const response = await app.request(`/tasks/${MISSING_ID}`);
