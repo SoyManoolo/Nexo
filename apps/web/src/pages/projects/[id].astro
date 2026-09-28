@@ -197,6 +197,7 @@ function activityLabel(activity: ProjectActivity): string {
 
 const updateForm = submittedForm?.get('intent') === 'update' ? submittedForm : null;
 const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm : null;
+const taskFormTags = selectedTags(taskForm ?? new FormData());
 ---
 
 <AppLayout title={project ? `${project.name} · Nexo` : 'Proyecto · Nexo'} section="projects">
@@ -302,7 +303,12 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
                     </div>
                     <label class="field">Nueva tarea <input name="title" required maxlength="200" placeholder="¿Qué hay que hacer?" value={formValue(taskForm, 'title')} autofocus /></label>
                     <label class="field">Notas <textarea name="notes" maxlength="2000" placeholder="Detalles opcionales">{formValue(taskForm, 'notes')}</textarea></label>
-                    <label class="field">Etiquetas <select name="tags" multiple size="5">{tagChoices(selectedTags(taskForm ?? new FormData())).map((tag) => <option value={tag} selected={selectedTags(taskForm ?? new FormData()).includes(tag)}>{tag}</option>)}</select><small>Selecciona una o varias etiquetas.</small></label>
+                    <details class="tag-picker">
+                      <summary>Etiquetas{taskFormTags.length > 0 ? ` (${taskFormTags.length})` : ''}</summary>
+                      <div class="tag-picker-options">
+                        {tagChoices(taskFormTags).map((tag) => <label><input type="checkbox" name="tags" value={tag} checked={taskFormTags.includes(tag)} />{tag}</label>)}
+                      </div>
+                    </details>
                     <label class="field">Imagen <input name="file" type="file" accept="image/png,image/jpeg,image/webp" /><small>PNG, JPEG o WebP · máximo 10 MB</small></label>
                     <div class="quick-fields">
                       <label class="field">Prioridad <select name="priority"><option value="low" selected={formValue(taskForm, 'priority') === 'low'}>Baja</option><option value="medium" selected={formValue(taskForm, 'priority', 'medium') === 'medium'}>Media</option><option value="high" selected={formValue(taskForm, 'priority') === 'high'}>Alta</option></select></label>
@@ -615,6 +621,10 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .modal-header h2 { margin: 0; }
   .modal-close { border: 0; border-radius: 0.4rem; padding: 0.1rem 0.45rem; background: transparent; color: #58665c; cursor: pointer; font-size: 1.8rem; line-height: 1; }
   .modal-close:hover { background: #edf5ee; color: #27583b; }
+  .tag-picker { border: 1px solid var(--border); border-radius: 0.6rem; }
+  .tag-picker summary { cursor: pointer; padding: 0.7rem 0.8rem; font-size: 0.9rem; font-weight: 650; }
+  .tag-picker-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; border-top: 1px solid var(--border); padding: 0.75rem 0.8rem; }
+  .tag-picker-options label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
   .quick-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
   .archive-panel { margin: 0; border-top: 1px solid #dce2da; padding: 1rem 1.25rem; }
@@ -628,6 +638,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
     .task-board { grid-template-columns: minmax(0, 1fr); min-height: 0; overflow: visible; }
     .view-switcher { align-self: flex-start; }
     .quick-fields { grid-template-columns: 1fr; }
+    .tag-picker-options { grid-template-columns: 1fr; }
     .summary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .activity-list li { grid-template-columns: 1fr; gap: 0.25rem; }
   }

@@ -123,7 +123,7 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
               <input type="hidden" name="intent" value="save" />
               <label class="field">Título <input name="title" required maxlength="220" value={formValue(submittedForm, 'title', task.title)} /></label>
               <label class="field">Notas <textarea id="task-notes" name="notes" maxlength="2000">{formValue(submittedForm, 'notes', task.notes ?? '')}</textarea></label>
-              <label class="field">Etiquetas <select name="tags" multiple size="5">{tagChoices(submittedForm ? selectedTags(submittedForm) : task.tags).map((tag) => <option value={tag} selected={(submittedForm ? selectedTags(submittedForm) : task.tags).includes(tag)}>{tag}</option>)}</select><small>Selecciona una o varias etiquetas.</small></label>
+              <details class="tag-picker"><summary>Etiquetas</summary><div class="tag-picker-options">{tagChoices(submittedForm ? selectedTags(submittedForm) : task.tags).map((tag) => <label><input type="checkbox" name="tags" value={tag} checked={(submittedForm ? selectedTags(submittedForm) : task.tags).includes(tag)} /> {tag}</label>)}</div></details>
               <label class="field">Proyecto
                 <select name="projectId">
                   <option value="" selected={formValue(submittedForm, 'projectId', task.projectId ?? '') === ''}>Sin proyecto (inbox)</option>
@@ -236,6 +236,10 @@ const backHref = task?.projectId ? `/projects/${task.projectId}` : '/inbox';
   .task-side { display: grid; align-content: start; gap: 1.3rem; min-width: 0; }
   .field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
   .field[hidden] { display: none; }
+  .tag-picker { border: 1px solid var(--border); border-radius: 0.65rem; background: var(--surface); }
+  .tag-picker summary { cursor: pointer; padding: 0.7rem 0.8rem; font-weight: 650; }
+  .tag-picker-options { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; padding: 0 0.8rem 0.8rem; }
+  .tag-picker-options label { display: inline-flex; align-items: center; gap: 0.35rem; }
   .actions { display: grid; gap: 0.8rem; }
   .actions form, .actions button { width: 100%; }
   .attachment-upload { display: flex; align-items: end; flex-wrap: wrap; gap: 0.7rem; margin-bottom: 1rem; }

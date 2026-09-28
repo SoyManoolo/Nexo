@@ -132,7 +132,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.match(projectPage, /Vista de tareas/);
   assert.match(projectPage, /Columnas[\s\S]*Filas/);
   assert.match(projectPage, /class="task-board/);
-  assert.match(projectPage, /name="tags" multiple/);
+  assert.match(projectPage, /class="tag-picker"[\s\S]*type="checkbox" name="tags"/);
   assert.match(projectPage, /name="file" type="file"/);
   assert.match(await (await fetch(`${base}/projects/${projects[0].id}?view=list`)).text(), /name="view" value="list"/);
 
