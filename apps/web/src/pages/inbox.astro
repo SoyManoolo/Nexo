@@ -200,11 +200,11 @@ try {
   .view-switcher a { padding: 0.38rem 0.65rem; color: #316d4b; font-size: 0.88rem; font-weight: 700; text-decoration: none; }
   .view-switcher a + a { border-left: 1px solid #b9c8bb; }
   .view-switcher a[aria-current='page'] { background: #316d4b; color: #fff; }
-  .task-board { display: grid; grid-template-columns: repeat(5, minmax(11rem, 1fr)); gap: 0.8rem; min-height: max(24rem, calc(100vh - 22rem)); overflow-x: auto; padding-bottom: 0.4rem; }
-  .task-column { border: 1px solid #dce2da; border-radius: 0.7rem; padding: 0.8rem; background: #f7faf7; }
+  .task-board { display: grid; grid-template-columns: repeat(5, minmax(11rem, 1fr)); gap: 0.8rem; align-items: stretch; overflow-x: auto; padding-bottom: 0.4rem; }
+  .task-column { display: flex; flex-direction: column; min-height: 12rem; max-height: 36rem; border: 1px solid #dce2da; border-radius: 0.7rem; padding: 0.8rem; background: #f7faf7; }
   .task-column h2 { margin: 0 0 0.75rem; color: #365440; font-size: 0.95rem; }
   .board-tasks { display: grid; gap: 0.5rem; padding: 0; margin: 0; list-style: none; }
-  .board-tasks { max-height: 32rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .board-tasks { min-height: 0; max-height: 32rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
   .board-task { display: grid; gap: 0.35rem; padding: 1rem; text-decoration: none; }
   .board-task:hover { border-color: #7faa8c; }
   .board-task small, .empty-column { color: #58665c; }

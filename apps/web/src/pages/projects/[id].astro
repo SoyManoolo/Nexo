@@ -598,7 +598,7 @@ const taskForm = submittedForm?.get('intent') === 'create-task' ? submittedForm 
   .task-link { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task-link:hover { border-color: #7faa8c; }
   .task-link small { flex: none; color: #58665c; }
-  .task-board { display: grid; grid-template-columns: repeat(5, minmax(11rem, 1fr)); align-items: stretch; gap: 0.8rem; min-height: max(24rem, calc(100vh - 22rem)); overflow-x: auto; padding-bottom: 0.4rem; }
+  .task-board { display: grid; grid-template-columns: repeat(5, minmax(11rem, 1fr)); align-items: stretch; gap: 0.8rem; overflow-x: auto; padding-bottom: 0.4rem; }
   .task-column { min-width: 0; border: 1px solid #dce2da; border-radius: 0.7rem; padding: 0.8rem; background: #f7faf7; transition: border-color 150ms ease, background 150ms ease; }
   .task-column.is-drop-target { border-color: #3d7655; background: #edf5ee; }
   .task-column h3 { margin: 0 0 0.75rem; color: #365440; font-size: 0.95rem; }
