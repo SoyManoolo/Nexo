@@ -131,9 +131,10 @@ const searchIndex = JSON.stringify({
             <div class:list={['calendar-day', { 'outside-month': view === 'month' && day.slice(0, 7) !== selectedDay.slice(0, 7), today: day === today }]}>
               <time datetime={day} aria-label={dayLabel.format(new Date(`${day}T12:00:00Z`))}>{Number(day.slice(8))}</time>
               <div class="day-events">
-                {eventsFor(day).map(({ task, kind }) => (
+                {eventsFor(day).slice(0, 3).map(({ task, kind }) => (
                   <a class:list={['calendar-event', kind, { done: task.status === 'done' }]} href={`/tasks/${task.id}`} aria-label={`${task.title}, ${kind === 'both' ? 'programada y fecha límite' : kind === 'planned' ? 'programada' : 'fecha límite'}`} title={kind === 'both' ? 'Programada y fecha límite' : kind === 'planned' ? 'Programada' : 'Fecha límite'}>{task.title}</a>
                 ))}
+                {eventsFor(day).length > 3 && <button type="button" class="more-events" data-calendar-day={day} aria-label={`Ver las ${eventsFor(day).length} tareas del ${day}`}>+{eventsFor(day).length - 3} más</button>}
               </div>
             </div>
           ))}
@@ -141,6 +142,7 @@ const searchIndex = JSON.stringify({
       </div>
       <p class="calendar-hint">Desliza para ver los demás días →</p>
       <div class="legend"><span><i class="planned-dot"></i> Programada</span><span><i class="deadline-dot"></i> Fecha límite</span></div>
+      {days.filter((day) => eventsFor(day).length > 3).map((day) => <dialog class="day-dialog" id={`day-dialog-${day}`} aria-label={`Tareas del ${day}`}><div class="day-dialog-heading"><h2>{dayLabel.format(new Date(`${day}T12:00:00Z`))}</h2><button type="button" class="button secondary" data-close-day>Cerrar</button></div><ul>{eventsFor(day).map(({ task, kind }) => <li><a href={`/tasks/${task.id}`}>{task.title} <small>· {kind === 'both' ? 'Programada y fecha límite' : kind === 'planned' ? 'Programada' : 'Fecha límite'}</small></a></li>)}</ul></dialog>)}
     </section>
 
     <aside class="home-lists">
@@ -214,6 +216,10 @@ const searchIndex = JSON.stringify({
   };
   searchForm?.addEventListener('input', updateSearch);
   searchForm?.addEventListener('change', updateSearch);
+  document.querySelectorAll<HTMLButtonElement>('[data-calendar-day]').forEach((button) => button.addEventListener('click', () =>
+    document.querySelector<HTMLDialogElement>(`#day-dialog-${button.dataset.calendarDay}`)?.showModal()));
+  document.querySelectorAll<HTMLButtonElement>('[data-close-day]').forEach((button) => button.addEventListener('click', () =>
+    button.closest('dialog')?.close()));
 </script>
 
 <style>
@@ -247,8 +253,8 @@ const searchIndex = JSON.stringify({
   .calendar-hint { display: none; }
   .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(5.5rem, 1fr)); min-width: 38.5rem; border-top: 1px solid #dce2da; border-left: 1px solid #dce2da; }
   .weekday { padding: 0.4rem; text-align: center; color: #58665c; font-size: 0.78rem; font-weight: 750; background: #f4f7f2; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
-  .calendar-day { min-height: 4.4rem; padding: 0.35rem; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
-  .calendar-grid[data-view="week"] .calendar-day { min-height: 9rem; }
+  .calendar-day { height: 8.5rem; min-width: 0; overflow: hidden; padding: 0.35rem; border-right: 1px solid #dce2da; border-bottom: 1px solid #dce2da; }
+  .calendar-grid[data-view="week"] .calendar-day { height: 10rem; }
   .calendar-day.outside-month { background: #f8f9f6; }
   .calendar-day time { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; color: #4d5d52; font-size: 0.8rem; }
   .calendar-day.today time { background: #316d4b; color: #fff; border-radius: 50%; }
@@ -258,6 +264,15 @@ const searchIndex = JSON.stringify({
   .calendar-event.both { background: #f2eafa; border-left-color: #794da4; }
   .calendar-event.done { opacity: 0.6; text-decoration: line-through; }
   .calendar-event:hover { filter: brightness(0.94); }
+  .more-events { width: 100%; border: 0; padding: 0.15rem; background: transparent; color: var(--accent-text); font-size: 0.75rem; font-weight: 700; text-align: left; cursor: pointer; }
+  .day-dialog { width: min(30rem, calc(100% - 2rem)); max-height: 80dvh; overflow-y: auto; border: 1px solid var(--border); border-radius: 0.8rem; padding: 1.25rem; background: var(--surface); color: var(--text); }
+  .day-dialog::backdrop { background: rgb(0 0 0 / 0.55); }
+  .day-dialog-heading { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
+  .day-dialog-heading h2 { margin: 0; text-transform: capitalize; }
+  .day-dialog ul { list-style: none; padding: 0; }
+  .day-dialog li + li { border-top: 1px solid var(--border); }
+  .day-dialog li a { display: block; padding: 0.6rem 0; text-decoration: none; }
+  .day-dialog small { color: var(--subtle); }
   .legend { gap: 1rem; margin-top: 0.8rem; color: #58665c; font-size: 0.8rem; }
   .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
   .legend i { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: #397d53; }
