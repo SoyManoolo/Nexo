@@ -210,6 +210,16 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   assert.equal(archived.status, 303);
   assert.equal(archived.headers.get('location'), '/projects?status=archived');
   assert.equal(projects[0].status, 'archived');
-  assert.match(await (await fetch(`${base}/projects?status=archived`)).text(), /Proyecto de prueba/);
+  const archivedPage = await (await fetch(`${base}/projects?status=archived`)).text();
+  assert.match(archivedPage, /Proyecto de prueba/);
+  assert.match(archivedPage, /aria-label="Restaurar Proyecto de prueba"/);
   assert.doesNotMatch(await (await fetch(`${base}/projects`)).text(), /Proyecto de prueba/);
+  const restored = await submit('/projects?status=archived', { intent: 'restore-project', projectId: projects[0].id });
+  assert.equal(restored.status, 303);
+  assert.equal(restored.headers.get('location'), '/projects');
+  assert.equal(projects[0].status, 'active');
+  assert.equal(projects[0].archivedAt, null);
+  assert.match(await (await fetch(`${base}/projects`)).text(), /Proyecto de prueba/);
+  assert.doesNotMatch(await (await fetch(`${base}/projects?status=archived`)).text(), /Proyecto de prueba/);
+  assert.ok(calls.some((call) => call.method === 'POST' && call.path === `/projects/${projects[0].id}/restore`));
 });

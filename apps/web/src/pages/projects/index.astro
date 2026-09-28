@@ -34,6 +34,10 @@ if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   submittedForm = form;
   try {
+    if (form.get('intent') === 'restore-project') {
+      await createApiClient().restoreProject(String(form.get('projectId') ?? ''));
+      return Astro.redirect('/projects', 303);
+    }
     if (form.get('intent') === 'import-github') {
       const repository = String(form.get('repository') ?? '');
       const project = await createApiClient().importGithubProject({ repositoryUrl: `https://github.com/${repository}` });
@@ -126,7 +130,7 @@ for (const task of tasks) {
         )}
         <ul class="projects">
           {visibleProjects.map((project) => (
-            <li>
+            <li class="project-item">
               <a class="project card" href={`/projects/${project.id}`}>
                 <span class="project-color" style={`background-color: ${project.color ?? '#4d8564'}`} aria-hidden="true"></span>
                 <span><strong>{project.name}</strong>{project.description && <small>{project.description}</small>}</span>
@@ -137,6 +141,11 @@ for (const task of tasks) {
                 })()}
                 <span aria-hidden="true">→</span>
               </a>
+              {showArchived && <form method="post" class="restore-project-form">
+                <input type="hidden" name="intent" value="restore-project" />
+                <input type="hidden" name="projectId" value={project.id} />
+                <button class="button secondary" type="submit" aria-label={`Restaurar ${project.name}`}>Restaurar</button>
+              </form>}
             </li>
           ))}
         </ul>
@@ -187,7 +196,9 @@ for (const task of tasks) {
   .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
   .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
   .projects { display: grid; gap: 0.7rem; padding: 0; margin: 0; list-style: none; }
-  .project { display: flex; align-items: center; gap: 0.9rem; text-decoration: none; }
+  .project-item { display: flex; align-items: center; gap: 0.65rem; }
+  .project { display: flex; flex: 1; min-width: 0; align-items: center; gap: 0.9rem; text-decoration: none; }
+  .restore-project-form { flex: none; }
   .project:hover { border-color: #7faa8c; }
   .project span:nth-child(2) { flex: 1; min-width: 0; }
   .project strong, .project small { display: block; }
@@ -204,6 +215,8 @@ for (const task of tasks) {
   .modal-close:hover { background: #edf5ee; color: #27583b; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
   @media (max-width: 600px) {
+    .project-item { align-items: stretch; flex-direction: column; }
+    .restore-project-form .button { width: 100%; }
     .project { display: grid; grid-template-columns: 0.8rem minmax(0, 1fr) auto; align-items: start; gap: 0.65rem 0.75rem; }
     .project > span:nth-child(2) { grid-column: 2; grid-row: 1; min-width: 0; overflow-wrap: anywhere; }
     .project-color { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
