@@ -36,6 +36,14 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
     deleteTask: async (id: string) => {
       calls.push({ name: 'deleteTask', arguments: { id } });
     },
+    listDeletedTasks: async () => {
+      calls.push({ name: 'listDeletedTasks', arguments: {} });
+      return [{ id: taskId, title: 'Deleted' }];
+    },
+    restoreTask: async (id: string) => {
+      calls.push({ name: 'restoreTask', arguments: { id } });
+      return { id, title: 'Restored' };
+    },
   } as unknown as NexoApiClient;
 
   const server = createNexoMcpServer(fakeApi);
@@ -49,7 +57,7 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
     const { tools } = await client.listTools();
     assert.deepEqual(
       tools.map(({ name }) => name),
-      ['list_projects', 'get_project', 'list_tasks', 'get_task', 'create_task', 'update_task', 'delete_task'],
+      ['list_projects', 'get_project', 'list_tasks', 'get_task', 'create_task', 'update_task', 'delete_task', 'list_deleted_tasks', 'restore_task'],
     );
 
     await client.callTool({ name: 'list_projects', arguments: { status: 'active' } });
@@ -81,6 +89,10 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
     const deleted = await client.callTool({ name: 'delete_task', arguments: { id: taskId } });
     assert.equal(deleted.isError, undefined);
     assert.deepEqual(JSON.parse(String(deleted.content[0]?.type === 'text' ? deleted.content[0].text : 'null')), { deleted: true });
+    const deletedTasks = await client.callTool({ name: 'list_deleted_tasks', arguments: {} });
+    assert.equal(JSON.parse(String(deletedTasks.content[0]?.type === 'text' ? deletedTasks.content[0].text : 'null'))[0].id, taskId);
+    const restored = await client.callTool({ name: 'restore_task', arguments: { id: taskId } });
+    assert.equal(JSON.parse(String(restored.content[0]?.type === 'text' ? restored.content[0].text : 'null')).title, 'Restored');
 
     assert.deepEqual(calls, [
       { name: 'listProjects', arguments: { status: 'active' } },
@@ -90,6 +102,8 @@ test('registers the Nexo tools and forwards task writes to the API client', asyn
       { name: 'createTask', arguments: { title: 'Preparar demo', priority: 'high' } },
       { name: 'updateTask', arguments: { id: taskId, status: 'in_review' } },
       { name: 'deleteTask', arguments: { id: taskId } },
+      { name: 'listDeletedTasks', arguments: {} },
+      { name: 'restoreTask', arguments: { id: taskId } },
     ]);
   } finally {
     await client.close();

@@ -4,10 +4,9 @@ import type {
   Task,
   UpdateTaskInput,
 } from '@nexo/contracts';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { taskAttachments, taskSequences, tasks, type NewTaskRow, type TaskRow } from '../db/schema.js';
-import type { StoredTaskAttachment } from '../services/task-attachment-storage.js';
+import { taskSequences, tasks, type NewTaskRow, type TaskRow } from '../db/schema.js';
 
 function toTaskDbInput(input: CreateTaskInput | UpdateTaskInput): Partial<NewTaskRow> {
   const { dueAt, startedAt, completedAt, ...rest } = input;
@@ -35,6 +34,7 @@ function toTask(row: TaskRow): Task {
     dueAt: row.dueAt?.toISOString() ?? null,
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
+    deletedAt: row.deletedAt?.toISOString() ?? null,
     blockedReason: row.blockedReason,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -63,6 +63,7 @@ export class TaskRepository {
           options.priority ? eq(tasks.priority, options.priority) : undefined,
           options.scheduledFor ? eq(tasks.scheduledFor, options.scheduledFor) : undefined,
           options.dueAt ? eq(tasks.dueAt, new Date(options.dueAt)) : undefined,
+          isNull(tasks.deletedAt),
         ),
       )
       .orderBy(
@@ -77,8 +78,13 @@ export class TaskRepository {
   }
 
   async findById(id: string): Promise<Task | null> {
-    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    const [task] = await db.select().from(tasks).where(and(eq(tasks.id, id), isNull(tasks.deletedAt)));
     return task ? toTask(task) : null;
+  }
+
+  async listDeleted(): Promise<Task[]> {
+    const rows = await db.select().from(tasks).where(isNotNull(tasks.deletedAt)).orderBy(desc(tasks.deletedAt));
+    return rows.map(toTask);
   }
 
   async update(id: string, input: UpdateTaskInput): Promise<Task | null> {
@@ -88,14 +94,14 @@ export class TaskRepository {
 
     return db.transaction(async (transaction) => {
       const [current] = await transaction.select().from(tasks).where(eq(tasks.id, id)).for('update');
-      if (!current) return null;
+      if (!current || current.deletedAt) return null;
       const projectChanged = input.projectId !== undefined && input.projectId !== current.projectId;
       const ticketNumber = projectChanged
         ? await this.nextTicketNumber(transaction, input.projectId ?? null)
         : current.ticketNumber;
       const [task] = await transaction.update(tasks)
         .set({ ...toTaskDbInput(input), ticketNumber, updatedAt: new Date() })
-        .where(eq(tasks.id, id))
+        .where(and(eq(tasks.id, id), isNull(tasks.deletedAt)))
         .returning();
       return toTask(task);
     });
@@ -109,14 +115,19 @@ export class TaskRepository {
     return sequence.nextNumber;
   }
 
-  async delete(id: string): Promise<StoredTaskAttachment[] | null> {
-    return db.transaction(async (transaction) => {
-      const attachments = await transaction
-        .select({ storageKey: taskAttachments.storageKey, mimeType: taskAttachments.mimeType })
-        .from(taskAttachments)
-        .where(eq(taskAttachments.taskId, id));
-      const deleted = await transaction.delete(tasks).where(eq(tasks.id, id)).returning({ id: tasks.id });
-      return deleted.length ? attachments : null;
-    });
+  async delete(id: string): Promise<boolean> {
+    const deleted = await db.update(tasks)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(tasks.id, id), isNull(tasks.deletedAt)))
+      .returning({ id: tasks.id });
+    return deleted.length > 0;
+  }
+
+  async restore(id: string): Promise<Task | null> {
+    const [task] = await db.update(tasks)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(and(eq(tasks.id, id), isNotNull(tasks.deletedAt)))
+      .returning();
+    return task ? toTask(task) : null;
   }
 }

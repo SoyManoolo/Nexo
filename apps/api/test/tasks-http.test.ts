@@ -38,6 +38,7 @@ function task(id: string, input: Partial<Task> = {}): Task {
     dueAt: null,
     startedAt: null,
     completedAt: null,
+    deletedAt: null,
     blockedReason: null,
     createdAt: '2026-01-03T00:00:00.000Z',
     updatedAt: '2026-01-03T00:00:00.000Z',
@@ -80,6 +81,7 @@ class TestTaskRepository extends TaskRepository {
   override async list(options: ListTasksQuery = {}): Promise<Task[]> {
     return [...this.items.values()].filter(
       (item) =>
+        !item.deletedAt &&
         (!options.projectId || item.projectId === options.projectId) &&
         (!options.status || item.status === options.status) &&
         (!options.priority || item.priority === options.priority),
@@ -87,19 +89,35 @@ class TestTaskRepository extends TaskRepository {
   }
 
   override async findById(id: string): Promise<Task | null> {
-    return this.items.get(id) ?? null;
+    const task = this.items.get(id);
+    return task && !task.deletedAt ? task : null;
+  }
+
+  override async listDeleted(): Promise<Task[]> {
+    return [...this.items.values()].filter((item) => Boolean(item.deletedAt));
   }
 
   override async update(id: string, input: UpdateTaskInput): Promise<Task | null> {
     const current = this.items.get(id);
-    if (!current) return null;
+    if (!current || current.deletedAt) return null;
     const updated = { ...current, ...input, updatedAt: '2026-01-04T00:00:00.000Z' };
     this.items.set(id, updated);
     return updated;
   }
 
-  override async delete(id: string): Promise<[] | null> {
-    return this.items.delete(id) ? [] : null;
+  override async delete(id: string): Promise<boolean> {
+    const current = this.items.get(id);
+    if (!current || current.deletedAt) return false;
+    this.items.set(id, { ...current, deletedAt: '2026-01-05T00:00:00.000Z' });
+    return true;
+  }
+
+  override async restore(id: string): Promise<Task | null> {
+    const current = this.items.get(id);
+    if (!current?.deletedAt) return null;
+    const restored = { ...current, deletedAt: null };
+    this.items.set(id, restored);
+    return restored;
   }
 }
 
@@ -222,7 +240,7 @@ test('GET /tasks/:id returns 404 for a valid but missing UUID', async () => {
   assert.equal(await taskRepository.findById(MISSING_ID), null);
 });
 
-test('DELETE /tasks/:id removes a task and distinguishes invalid or missing IDs', async () => {
+test('DELETE /tasks/:id hides a task until restored', async () => {
   const { app, taskRepository } = setup();
   const created = await app.request('/tasks', {
     method: 'POST',
@@ -233,6 +251,19 @@ test('DELETE /tasks/:id removes a task and distinguishes invalid or missing IDs'
 
   assert.equal((await app.request(`/tasks/${id}`, { method: 'DELETE' })).status, 204);
   assert.equal(await taskRepository.findById(id), null);
+  assert.equal((await app.request(`/tasks/${id}`)).status, 404);
+  assert.equal((await app.request('/tasks')).status, 200);
+  assert.deepEqual(await (await app.request('/tasks')).json(), []);
+  const deleted = await (await app.request('/tasks/deleted')).json() as Task[];
+  assert.equal(deleted.length, 1);
+  assert.equal(deleted[0]?.id, id);
+  assert.ok(deleted[0]?.deletedAt);
   assert.equal((await app.request(`/tasks/${id}`, { method: 'DELETE' })).status, 404);
   assert.equal((await app.request('/tasks/not-a-uuid', { method: 'DELETE' })).status, 400);
+  const restored = await app.request(`/tasks/${id}/restore`, { method: 'POST' });
+  assert.equal(restored.status, 200);
+  assert.equal((await restored.json() as Task).deletedAt, null);
+  assert.equal((await app.request(`/tasks/${id}`)).status, 200);
+  assert.deepEqual(await (await app.request('/tasks/deleted')).json(), []);
+  assert.equal((await app.request(`/tasks/${id}/restore`, { method: 'POST' })).status, 404);
 });

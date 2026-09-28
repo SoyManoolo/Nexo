@@ -49,6 +49,8 @@ export function createTasksRoute(
     return context.json(tasks);
   });
 
+  tasksRoute.get('/deleted', async (context) => context.json(await taskService.listDeleted()));
+
   tasksRoute.get('/:id', async (context) => {
     const params = TaskIdParamsSchema.safeParse(context.req.param());
 
@@ -103,6 +105,10 @@ export function createTasksRoute(
 
   tasksRoute.post('/:id/reopen', async (context) => {
     return runTaskAction(context, (id) => taskService.reopen(id));
+  });
+
+  tasksRoute.post('/:id/restore', async (context) => {
+    return runTaskAction(context, (id) => taskService.restore(id));
   });
 
   tasksRoute.post('/:id/move-to-inbox', async (context) => {

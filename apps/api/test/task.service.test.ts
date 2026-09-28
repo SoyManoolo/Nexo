@@ -45,6 +45,7 @@ function task(id: string, input: Partial<Task> = {}): Task {
     dueAt: null,
     startedAt: null,
     completedAt: null,
+    deletedAt: null,
     blockedReason: null,
     createdAt: '2026-01-03T00:00:00.000Z',
     updatedAt: '2026-01-03T00:00:00.000Z',
@@ -89,6 +90,7 @@ class InMemoryTaskRepository extends TaskRepository {
   override async list(options: ListTasksQuery = {}): Promise<Task[]> {
     return [...this.tasks.values()].filter(
       (item) =>
+        !item.deletedAt &&
         (!options.projectId || item.projectId === options.projectId) &&
         (!options.status || item.status === options.status) &&
         (!options.priority || item.priority === options.priority),
@@ -96,19 +98,35 @@ class InMemoryTaskRepository extends TaskRepository {
   }
 
   override async findById(id: string): Promise<Task | null> {
-    return this.tasks.get(id) ?? null;
+    const task = this.tasks.get(id);
+    return task && !task.deletedAt ? task : null;
+  }
+
+  override async listDeleted(): Promise<Task[]> {
+    return [...this.tasks.values()].filter((item) => Boolean(item.deletedAt));
   }
 
   override async update(id: string, input: UpdateTaskInput): Promise<Task | null> {
     const current = this.tasks.get(id);
-    if (!current) return null;
+    if (!current || current.deletedAt) return null;
     const updated = { ...current, ...input, updatedAt: '2026-01-04T00:00:00.000Z' };
     this.tasks.set(id, updated);
     return updated;
   }
 
-  override async delete(id: string): Promise<[] | null> {
-    return this.tasks.delete(id) ? [] : null;
+  override async delete(id: string): Promise<boolean> {
+    const current = this.tasks.get(id);
+    if (!current || current.deletedAt) return false;
+    this.tasks.set(id, { ...current, deletedAt: '2026-01-05T00:00:00.000Z' });
+    return true;
+  }
+
+  override async restore(id: string): Promise<Task | null> {
+    const current = this.tasks.get(id);
+    if (!current?.deletedAt) return null;
+    const restored = { ...current, deletedAt: null };
+    this.tasks.set(id, restored);
+    return restored;
   }
 }
 
@@ -205,10 +223,18 @@ test('TaskService keeps the ticket prefix out of the stored editable title', asy
   assert.equal(repository.tasks.get(id)?.title, 'Revised');
 });
 
-test('TaskService deletes an existing task and rejects a second deletion', async () => {
+test('TaskService moves a task to deleted and restores it', async () => {
   const { repository, service } = createService();
   const created = await service.create({ title: 'Remove task' });
   await service.delete(created.id);
-  assert.equal(repository.tasks.has(created.id), false);
+  assert.equal((await service.list()).length, 0);
+  assert.equal((await service.listDeleted()).length, 1);
+  assert.equal(repository.tasks.get(created.id)?.deletedAt, '2026-01-05T00:00:00.000Z');
+  await assert.rejects(service.get(created.id), { name: 'TaskNotFoundError' });
   await assert.rejects(service.delete(created.id), { name: 'TaskNotFoundError' });
+  const restored = await service.restore(created.id);
+  assert.equal(restored.deletedAt, null);
+  assert.equal((await service.list()).length, 1);
+  assert.equal((await service.listDeleted()).length, 0);
+  await assert.rejects(service.restore(created.id), { name: 'TaskNotFoundError' });
 });

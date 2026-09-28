@@ -1,0 +1,52 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import { createApiClient } from '../lib/api';
+import { formError } from '../lib/form-error';
+import { isSameOrigin } from '../lib/security';
+import { TaskStatusLabels, type Task } from '@nexo/contracts';
+
+let tasks: Task[] = [];
+let errorMessage: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  if (!isSameOrigin(Astro.request, Astro.url)) return new Response('Origen no permitido', { status: 403 });
+  const form = await Astro.request.formData();
+  try {
+    if (form.get('intent') !== 'restore') throw new Error('Acción desconocida');
+    await createApiClient().restoreTask(String(form.get('taskId') ?? ''));
+    return Astro.redirect('/deleted', 303);
+  } catch (error) {
+    const failure = formError(error, 'No se pudo recuperar la tarea. Inténtalo de nuevo.');
+    errorMessage = failure.message;
+    Astro.response.status = failure.status;
+  }
+}
+
+try {
+  tasks = await createApiClient().listDeletedTasks();
+} catch (error) {
+  console.error('No se pudieron cargar las tareas eliminadas:', error);
+  errorMessage ??= 'No se pudieron cargar las tareas eliminadas. Comprueba la conexión con la API.';
+}
+---
+
+<AppLayout title="Tareas eliminadas · Nexo" section="deleted">
+  <main class="page">
+    <header class="page-header"><div><p class="eyebrow">Recuperación</p><h1>Tareas eliminadas</h1><p class="page-intro">Recupera una tarea con sus archivos adjuntos.</p></div></header>
+    {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p></div>}
+    {!errorMessage && tasks.length === 0 && <div class="notice"><h2>La lista está vacía</h2><p>Las tareas que elimines aparecerán aquí.</p></div>}
+    {tasks.length > 0 && <ul class="deleted-tasks">{tasks.map((task) => (
+      <li class="card deleted-task">
+        <div><strong>{task.title}</strong><p>{TaskStatusLabels[task.status]} · {task.deletedAt ? new Date(task.deletedAt).toLocaleString('es-ES') : ''}</p></div>
+        <form method="post"><input type="hidden" name="intent" value="restore" /><input type="hidden" name="taskId" value={task.id} /><button class="button secondary" type="submit">Recuperar</button></form>
+      </li>
+    ))}</ul>}
+  </main>
+</AppLayout>
+
+<style>
+  .deleted-tasks { display: grid; gap: 0.8rem; margin: 0; padding: 0; list-style: none; }
+  .deleted-task { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .deleted-task p { margin: 0.4rem 0 0; color: var(--subtle); }
+  @media (max-width: 600px) { .deleted-task { align-items: stretch; flex-direction: column; } }
+</style>

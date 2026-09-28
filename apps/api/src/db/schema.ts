@@ -78,6 +78,7 @@ export const tasks = pgTable(
     dueAt: timestamp('due_at', { withTimezone: true }),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     blockedReason: text('blocked_reason'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -88,6 +89,7 @@ export const tasks = pgTable(
     uniqueIndex('tasks_inbox_ticket_number_idx').on(table.ticketNumber).where(sql`${table.projectId} IS NULL`),
     index('tasks_status_scheduled_for_idx').on(table.status, table.scheduledFor),
     index('tasks_due_at_idx').on(table.dueAt),
+    index('tasks_deleted_at_idx').on(table.deletedAt),
     index('tasks_pending_idx')
       .on(table.updatedAt)
       .where(sql`${table.status} <> 'done'`),

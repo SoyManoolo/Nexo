@@ -15,7 +15,7 @@ const makeProject = (body) => ({
 const makeTask = (body) => ({
   id: randomUUID(), title: body.title, notes: body.notes ?? null, projectId: body.projectId ?? null, status: 'pending',
   priority: body.priority ?? 'medium', pinned: false, scheduledFor: body.scheduledFor ?? null, dueAt: body.dueAt ?? null, startedAt: null,
-  completedAt: null, blockedReason: null, createdAt: now, updatedAt: now,
+  completedAt: null, deletedAt: null, blockedReason: null, createdAt: now, updatedAt: now,
 });
 async function listen(server) {
   server.listen(0, '127.0.0.1');
@@ -46,33 +46,36 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
         value = makeProject(body);
         projects.push(value);
       } else value = projects.filter((item) => item.status === url.searchParams.get('status'));
+    } else if (url.pathname === '/tasks/deleted') {
+      value = tasks.filter((item) => item.deletedAt);
     } else if (url.pathname === '/tasks') {
       if (req.method === 'POST') {
         value = makeTask(body);
         tasks.push(value);
-      } else value = tasks;
+      } else value = tasks.filter((item) => !item.deletedAt);
     } else if (/^\/tasks\/[^/]+\/attachments$/.test(url.pathname)) {
       value = req.method === 'POST' ? {
         id: randomUUID(), taskId: url.pathname.split('/')[2], fileName: 'capture.png',
         mimeType: 'image/png', size: 3, createdAt: now,
       } : [];
     } else {
-      const project = /^\/projects\/([^/]+)(\/archive)?$/.exec(url.pathname);
-      const task = /^\/tasks\/([^/]+)(\/complete|\/reopen)?$/.exec(url.pathname);
+      const project = /^\/projects\/([^/]+)(\/archive|\/restore)?$/.exec(url.pathname);
+      const task = /^\/tasks\/([^/]+)(\/complete|\/reopen|\/restore)?$/.exec(url.pathname);
       if (project) {
         value = projects.find((item) => item.id === project[1]);
         if (value && project[2] && req.method === 'POST') {
-          value.status = 'archived';
-          value.archivedAt = now;
+          value.status = project[2] === '/archive' ? 'archived' : 'active';
+          value.archivedAt = project[2] === '/archive' ? now : null;
         }
       } else if (task) {
-        value = tasks.find((item) => item.id === task[1]);
+        value = tasks.find((item) => item.id === task[1] && (!item.deletedAt || task[2] === '/restore'));
         if (value && req.method === 'DELETE') {
-          tasks.splice(tasks.indexOf(value), 1);
+          value.deletedAt = now;
           res.writeHead(204);
           res.end();
           return;
         }
+        if (value && task[2] === '/restore' && req.method === 'POST') value.deletedAt = null;
         if (value && req.method === 'PATCH') Object.assign(value, body);
         if (value && task[2] && req.method === 'POST') {
           value.status = task[2] === '/complete' ? 'done' : 'pending';
@@ -172,8 +175,12 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   const deletedInboxTask = await submit(`/tasks/${inboxTaskId}`, { intent: 'delete' });
   assert.equal(deletedInboxTask.status, 303);
   assert.equal(deletedInboxTask.headers.get('location'), '/inbox');
-  assert.equal(tasks.some((item) => item.id === inboxTaskId), false);
+  assert.equal(tasks.find((item) => item.id === inboxTaskId)?.deletedAt, now);
   assert.doesNotMatch(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
+  assert.match(await (await fetch(`${base}/deleted`)).text(), /Tarea capturada/);
+  assert.equal((await submit('/deleted', { intent: 'restore', taskId: inboxTaskId })).status, 303);
+  assert.equal(tasks.find((item) => item.id === inboxTaskId)?.deletedAt, null);
+  assert.match(await (await fetch(`${base}/inbox`)).text(), /Tarea capturada/);
   assert.ok(calls.some((call) => call.method === 'DELETE' && call.path === `/tasks/${inboxTaskId}`));
 
   const projectTask = makeTask({ title: 'Tarea del proyecto', projectId: projects[0].id });
@@ -181,7 +188,7 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
   const deletedProjectTask = await submit(`/tasks/${projectTask.id}`, { intent: 'delete' });
   assert.equal(deletedProjectTask.status, 303);
   assert.equal(deletedProjectTask.headers.get('location'), `/projects/${projects[0].id}`);
-  assert.equal(tasks.some((item) => item.id === projectTask.id), false);
+  assert.equal(tasks.find((item) => item.id === projectTask.id)?.deletedAt, now);
 
   const capture = new FormData();
   capture.set('title', 'Tarea con imagen');

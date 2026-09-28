@@ -103,13 +103,25 @@ export function createNexoMcpServer(
   server.registerTool(
     'delete_task',
     {
-      description: 'Elimina definitivamente una tarea de Nexo y sus archivos adjuntos.',
+      description: 'Mueve una tarea de Nexo a tareas eliminadas. Se puede recuperar.',
       inputSchema: { id: z.string().uuid().describe('UUID de la tarea') },
     },
     async ({ id }) => {
       await api.deleteTask(id);
       return jsonResult({ deleted: true });
     },
+  );
+
+  server.registerTool(
+    'list_deleted_tasks',
+    { description: 'Lista las tareas eliminadas que se pueden recuperar.', inputSchema: {} },
+    async () => jsonResult(await api.listDeletedTasks()),
+  );
+
+  server.registerTool(
+    'restore_task',
+    { description: 'Recupera una tarea eliminada mediante su UUID.', inputSchema: { id: z.string().uuid() } },
+    async ({ id }) => jsonResult(await api.restoreTask(id)),
   );
 
   return server;

@@ -1,5 +1,5 @@
 import type { TaskAttachment } from '@nexo/contracts';
-import { and, asc, eq, like, lte } from 'drizzle-orm';
+import { and, asc, eq, isNull, like, lte } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { taskAttachments, tasks, type TaskAttachmentRow } from '../db/schema.js';
 
@@ -44,7 +44,7 @@ export class TaskAttachmentRepository {
   async expiredImages(cutoff: Date): Promise<TaskAttachmentRow[]> {
     const rows = await db.select({ attachment: taskAttachments }).from(taskAttachments)
       .innerJoin(tasks, eq(taskAttachments.taskId, tasks.id))
-      .where(and(eq(tasks.status, 'done'), lte(tasks.completedAt, cutoff), like(taskAttachments.mimeType, 'image/%')));
+      .where(and(eq(tasks.status, 'done'), isNull(tasks.deletedAt), lte(tasks.completedAt, cutoff), like(taskAttachments.mimeType, 'image/%')));
     return rows.map(({ attachment }) => attachment);
   }
 
@@ -52,7 +52,7 @@ export class TaskAttachmentRepository {
     await db.transaction(async (transaction) => {
       const [row] = await transaction.select({ attachment: taskAttachments }).from(taskAttachments)
         .innerJoin(tasks, eq(taskAttachments.taskId, tasks.id))
-        .where(and(eq(taskAttachments.id, id), eq(tasks.status, 'done'), lte(tasks.completedAt, cutoff)))
+        .where(and(eq(taskAttachments.id, id), eq(tasks.status, 'done'), isNull(tasks.deletedAt), lte(tasks.completedAt, cutoff)))
         .for('update');
       if (!row || !row.attachment.mimeType.startsWith('image/')) return;
       await removeFile(row.attachment);

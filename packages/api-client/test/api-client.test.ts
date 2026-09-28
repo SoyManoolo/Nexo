@@ -5,7 +5,7 @@ import { NexoApiClient, NexoApiNotFoundError, NexoApiResponseValidationError, Ne
 const ID = '550e8400-e29b-41d4-a716-446655440001';
 const NOW = '2026-01-01T00:00:00.000Z';
 const project = () => ({ id: ID, name: 'Project', description: null, color: null, status: 'active', archivedAt: null, createdAt: NOW, updatedAt: NOW });
-const task = () => ({ id: ID, title: 'Task', notes: null, projectId: null, status: 'pending', priority: 'medium', pinned: false, scheduledFor: null, dueAt: null, startedAt: null, completedAt: null, blockedReason: null, createdAt: NOW, updatedAt: NOW });
+const task = () => ({ id: ID, title: 'Task', notes: null, projectId: null, status: 'pending', priority: 'medium', pinned: false, scheduledFor: null, dueAt: null, startedAt: null, completedAt: null, deletedAt: null, blockedReason: null, createdAt: NOW, updatedAt: NOW });
 
 function clientWith(response: Response, inspect?: (input: RequestInfo | URL, init?: RequestInit) => void) {
   return new NexoApiClient({ baseUrl: 'https://api.example.test/v1/', fetch: async (input, init) => { inspect?.(input, init); return response; } });
@@ -33,13 +33,13 @@ test('expone todas las rutas de proyectos y tareas', async () => {
   const client = new NexoApiClient({ baseUrl: 'https://api.example.test/', fetch: async (input, init) => {
     requests.push({ url: input.toString(), method: init?.method });
     const url = input.toString();
-    return new Response(JSON.stringify(url.includes('/projects') ? (init?.method === 'GET' && url.includes('?') ? [project()] : project()) : task()));
+    return new Response(JSON.stringify(url.includes('/projects') ? (init?.method === 'GET' && url.includes('?') ? [project()] : project()) : url.endsWith('/tasks/deleted') ? [{ ...task(), deletedAt: NOW }] : task()));
   } });
   await client.listProjects({ status: 'active' }); await client.getProject(ID); await client.updateProject(ID, { name: 'Renamed' }); await client.archiveProject(ID); await client.deleteProject(ID);
-  await client.createTask({ title: 'New task' }); await client.getTask(ID); await client.updateTask(ID, { title: 'Renamed task' }); await client.completeTask(ID); await client.reopenTask(ID); await client.moveTaskToInbox(ID); await client.deleteTask(ID);
+  await client.createTask({ title: 'New task' }); await client.getTask(ID); await client.updateTask(ID, { title: 'Renamed task' }); await client.completeTask(ID); await client.reopenTask(ID); await client.moveTaskToInbox(ID); await client.deleteTask(ID); await client.listDeletedTasks(); await client.restoreTask(ID);
   assert.deepEqual(requests, [
     { url: 'https://api.example.test/projects?status=active', method: 'GET' }, { url: `https://api.example.test/projects/${ID}`, method: 'GET' }, { url: `https://api.example.test/projects/${ID}`, method: 'PATCH' }, { url: `https://api.example.test/projects/${ID}/archive`, method: 'POST' }, { url: `https://api.example.test/projects/${ID}`, method: 'DELETE' },
-    { url: 'https://api.example.test/tasks', method: 'POST' }, { url: `https://api.example.test/tasks/${ID}`, method: 'GET' }, { url: `https://api.example.test/tasks/${ID}`, method: 'PATCH' }, { url: `https://api.example.test/tasks/${ID}/complete`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}/reopen`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}/move-to-inbox`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}`, method: 'DELETE' },
+    { url: 'https://api.example.test/tasks', method: 'POST' }, { url: `https://api.example.test/tasks/${ID}`, method: 'GET' }, { url: `https://api.example.test/tasks/${ID}`, method: 'PATCH' }, { url: `https://api.example.test/tasks/${ID}/complete`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}/reopen`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}/move-to-inbox`, method: 'POST' }, { url: `https://api.example.test/tasks/${ID}`, method: 'DELETE' }, { url: 'https://api.example.test/tasks/deleted', method: 'GET' }, { url: `https://api.example.test/tasks/${ID}/restore`, method: 'POST' },
   ]);
 });
 

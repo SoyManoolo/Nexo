@@ -69,6 +69,7 @@ export class TaskAttachmentService {
   }
 
   async remove(taskId: string, attachmentId: string): Promise<void> {
+    await this.requireTask(taskId);
     const row = await this.attachmentRepository.delete(taskId, attachmentId);
     if (!row) throw new TaskAttachmentValidationError('Archivo adjunto no encontrado.');
     await removeStoredAttachments([row]);

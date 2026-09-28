@@ -290,6 +290,7 @@ export const TaskSchema = z.object({
   dueAt: TimestampSchema.nullable(),
   startedAt: TimestampSchema.nullable(),
   completedAt: TimestampSchema.nullable(),
+  deletedAt: TimestampSchema.nullable(),
   blockedReason: z.string().nullable(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
