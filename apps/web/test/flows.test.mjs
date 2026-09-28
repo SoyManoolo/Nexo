@@ -146,6 +146,11 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
     'Tarea capturada');
   assert.equal(tasks[0].dueAt, '2026-09-24T10:00:00.000Z');
   const home = await (await fetch(`${base}/?date=2026-09-22`)).text();
+  const headEnd = home.indexOf('</head>');
+  assert.ok(home.indexOf('.app-shell {') > home.indexOf('<head>') && home.indexOf('.app-shell {') < headEnd,
+    'El CSS de la estructura debe estar en el head antes de pintar la página');
+  assert.ok(home.indexOf('@media (max-width: 720px)') < headEnd,
+    'El CSS móvil debe estar en el head antes de pintar la página');
   assert.match(home, /Calendario/);
   assert.match(home, /class="brand-short" hidden/);
   assert.match(home, /addEventListener\('click'/);
