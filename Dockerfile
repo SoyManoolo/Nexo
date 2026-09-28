@@ -5,6 +5,7 @@ RUN corepack enable
 ARG WEB_ALLOWED_HOSTNAME
 ENV WEB_ALLOWED_HOSTNAME=${WEB_ALLOWED_HOSTNAME}
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY scripts ./scripts
 COPY apps ./apps
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile

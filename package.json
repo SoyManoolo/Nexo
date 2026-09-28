@@ -7,7 +7,10 @@
     "dev": "pnpm --filter @nexo/web dev",
     "dev:api": "pnpm --filter @nexo/api dev",
     "build": "pnpm --filter @nexo/web build && pnpm --filter @nexo/api build && pnpm --filter @nexo/mcp build",
-    "check": "pnpm --filter @nexo/web check && pnpm --filter @nexo/api check && pnpm --filter @nexo/mcp check"
+    "check": "pnpm --filter @nexo/web check && pnpm --filter @nexo/api check && pnpm --filter @nexo/mcp check",
+    "test": "pnpm -r --if-present test",
+    "verify": "pnpm check && pnpm test && pnpm build",
+    "prepare": "node scripts/install-git-hooks.mjs"
   },
   "devDependencies": {
     "prettier": "^3.6.2"
