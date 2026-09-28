@@ -6,11 +6,19 @@ import type { Project, Task } from '@nexo/contracts';
 const timeZone = process.env.NEXO_TIME_ZONE ?? 'Europe/Madrid';
 const localDay = new Intl.DateTimeFormat('sv-SE', { timeZone });
 const today = localDay.format(new Date());
+const requestedWeek = Astro.url.searchParams.get('week');
+const selectedDay = requestedWeek && /^\d{4}-\d{2}-\d{2}$/.test(requestedWeek) &&
+  !Number.isNaN(Date.parse(`${requestedWeek}T12:00:00Z`)) &&
+  new Date(`${requestedWeek}T12:00:00Z`).toISOString().slice(0, 10) === requestedWeek
+  ? requestedWeek : today;
 const parseDay = (value: string) => new Date(`${value}T12:00:00Z`);
 const dayKey = (value: Date) => value.toISOString().slice(0, 10);
 const addDays = (value: Date, amount: number) => { const date = new Date(value); date.setUTCDate(date.getUTCDate() + amount); return date; };
 const todayDate = parseDay(today);
 const weekStart = addDays(todayDate, -((todayDate.getUTCDay() + 6) % 7));
+const selectedDate = parseDay(selectedDay);
+const selectedWeekStart = addDays(selectedDate, -((selectedDate.getUTCDay() + 6) % 7));
+const selectedWeekEnd = addDays(selectedWeekStart, 7);
 const nextWeekStart = addDays(weekStart, 7);
 const previousWeekStart = addDays(weekStart, -7);
 const startKey = dayKey(weekStart);
@@ -39,14 +47,25 @@ const dueThisWeek = open.filter((task) => {
   return dueDay && dueDay >= today && dueDay <= endKey;
 });
 const days = Array.from({ length: 7 }, (_, index) => {
-  const date = addDays(weekStart, index);
+  const date = addDays(selectedWeekStart, index);
   const key = dayKey(date);
   const count = tasks.filter((task) => task.completedAt && localDay.format(new Date(task.completedAt)) === key).length;
   const label = new Intl.DateTimeFormat('es-ES', { weekday: 'short', timeZone: 'UTC' }).format(date);
   return { key, label, count };
 });
 const maxDaily = Math.max(1, ...days.map((day) => day.count));
+const weeklyHistory = Array.from({ length: 8 }, (_, index) => {
+  const start = addDays(weekStart, (index - 7) * 7);
+  const end = addDays(start, 7);
+  const count = tasks.filter((task) => task.completedAt &&
+    inRange(localDay.format(new Date(task.completedAt)), dayKey(start), dayKey(end))).length;
+  return { label: weekLabel.format(start), count };
+});
+const historyMax = Math.max(1, ...weeklyHistory.map((week) => week.count));
+const linePoints = weeklyHistory.map((week, index) =>
+  `${36 + index * 72},${124 - week.count / historyMax * 100}`).join(' ');
 const dateRange = `${weekLabel.format(weekStart)} – ${weekLabel.format(addDays(nextWeekStart, -1))}`;
+const selectedRange = `${weekLabel.format(selectedWeekStart)} – ${weekLabel.format(addDays(selectedWeekEnd, -1))}`;
 const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone }).format(new Date(iso));
 ---
 
@@ -61,8 +80,9 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
         <a class="metric card" href="/"><span>Vencidas</span><strong>{overdue.length}</strong><small>Con fecha límite anterior a hoy</small></a>
       </section>
       <div class="weekly-grid">
-        <section class="card completion-chart"><h2>Completadas por día</h2><div class="bars" role="img" aria-label={days.map((day) => `${day.label}: ${day.count}`).join(', ')}>{days.map((day) => <div class="bar-item"><strong>{day.count || ''}</strong><span class="bar-track"><i style={`--bar-height:${Math.max(5, day.count / maxDaily * 100)}%`}></i></span><small>{day.label}</small></div>)}</div></section>
+        <section class="card completion-chart"><div class="section-heading"><div><h2>Completadas por día</h2><p class="muted">{selectedRange}</p></div><nav class="week-nav" aria-label="Semana de completadas"><a href={`/weekly?week=${dayKey(addDays(selectedWeekStart, -7))}`} aria-label="Semana anterior">←</a><a href="/weekly">Actual</a><a href={`/weekly?week=${dayKey(selectedWeekEnd)}`} aria-label="Semana siguiente">→</a></nav></div><div class="bars" role="img" aria-label={days.map((day) => `${day.label}: ${day.count}`).join(', ')}>{days.map((day) => <div class="bar-item"><strong>{day.count || ''}</strong><span class="bar-track"><i style={`--bar-height:${Math.max(5, day.count / maxDaily * 100)}%`}></i></span><small>{day.label}</small></div>)}</div></section>
         <section class="card dates-card"><h2>Fechas de esta semana <span class="muted">({dueThisWeek.length})</span></h2>{dueThisWeek.length ? <><ul class="task-list">{dueThisWeek.slice(0, 4).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {task.dueAt ? fmtDate(task.dueAt) : fmtDate(`${task.scheduledFor}T12:00:00`)}</small></a></li>)}</ul>{dueThisWeek.length > 4 && <button type="button" class="button secondary show-all-dates" id="show-all-dates">Ver todas ({dueThisWeek.length})</button>}</> : <p class="muted">No hay tareas próximas con fecha esta semana.</p>}</section>
+        <section class="card history-chart"><h2>Completadas por semana</h2><div class="history-scroll"><svg viewBox="0 0 576 160" role="img" aria-label={weeklyHistory.map((week) => `${week.label}: ${week.count}`).join(', ')}><line x1="20" y1="124" x2="560" y2="124" class="chart-axis" /><polyline points={linePoints} class="chart-line" />{weeklyHistory.map((week, index) => <g><circle cx={36 + index * 72} cy={124 - week.count / historyMax * 100} r="5" class="chart-point" /><text x={36 + index * 72} y="149" text-anchor="middle">{week.label}</text><text x={36 + index * 72} y={Math.max(14, 113 - week.count / historyMax * 100)} text-anchor="middle">{week.count}</text></g>)}</svg></div></section>
         <section class="card"><h2>Bloqueadas <span class="muted">({blocked.length})</span></h2>{blocked.length ? <ul class="task-list">{blocked.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · {task.blockedReason}</small></a></li>)}</ul> : <p class="muted">No hay tareas bloqueadas.</p>}</section>
         <section class="card"><h2>Vencidas <span class="muted">({overdue.length})</span></h2>{overdue.length ? <ul class="task-list">{overdue.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · Venció {fmtDate(task.dueAt!)}</small></a></li>)}</ul> : <p class="muted">No hay tareas vencidas.</p>}</section>
       </div>
@@ -85,13 +105,23 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
   .metric strong { font-size: 2rem; line-height: 1.1; }
   .metric small { color: var(--subtle); }
   .weekly-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; margin-top: 1rem; }
-  .completion-chart { min-height: 15rem; }
-  .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 0.75rem; }
-  .dialog-heading h2 { margin-bottom: 0.3rem; }
-  .dates-card { align-self: start; }
+  .completion-chart { grid-column: 1; grid-row: 1; min-height: 15rem; }
+  .section-heading, .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 0.75rem; }
+  .section-heading h2, .dialog-heading h2 { margin-bottom: 0.3rem; }
+  .section-heading p { margin: 0; }
+  .week-nav { display: flex; gap: 0.25rem; flex-shrink: 0; }
+  .week-nav a { padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: 0.4rem; text-decoration: none; }
+  .dates-card { grid-column: 2; grid-row: 1; align-self: start; }
+  .history-chart { grid-column: 1; grid-row: 2; }
   .show-all-dates { margin-top: 0.8rem; }
   .dates-dialog { width: min(36rem, calc(100% - 2rem)); max-height: min(80dvh, 44rem); overflow-y: auto; border: 1px solid var(--border); border-radius: 0.8rem; padding: 1.25rem; background: var(--surface); color: var(--text); }
   .dates-dialog::backdrop { background: rgb(0 0 0 / 0.55); }
+  .history-scroll { overflow-x: auto; }
+  .history-chart svg { display: block; width: 100%; min-width: 30rem; height: auto; }
+  .chart-axis { stroke: var(--border); }
+  .chart-line { fill: none; stroke: var(--accent-text); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .chart-point { fill: var(--accent-text); }
+  .history-chart text { fill: var(--subtle); font-size: 10px; }
   .bars { display: flex; align-items: end; justify-content: space-around; gap: 0.5rem; height: 10rem; padding-top: 1rem; }
   .bar-item { display: grid; justify-items: center; align-items: end; gap: 0.3rem; height: 100%; min-width: 2rem; }
   .bar-item strong, .bar-item small { color: var(--subtle); font-size: 0.8rem; }
@@ -103,5 +133,5 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
   .task-list a:hover strong { color: var(--accent-text); }
   .task-list small { color: var(--subtle); }
   @media (max-width: 850px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 650px) { .weekly-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 650px) { .weekly-grid { grid-template-columns: 1fr; } .dates-card { grid-column: 1; grid-row: 3; } }
 </style>
