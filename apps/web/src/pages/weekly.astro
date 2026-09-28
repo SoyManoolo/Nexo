@@ -62,13 +62,20 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
       </section>
       <div class="weekly-grid">
         <section class="card completion-chart"><h2>Completadas por día</h2><div class="bars" role="img" aria-label={days.map((day) => `${day.label}: ${day.count}`).join(', ')}>{days.map((day) => <div class="bar-item"><strong>{day.count || ''}</strong><span class="bar-track"><i style={`--bar-height:${Math.max(5, day.count / maxDaily * 100)}%`}></i></span><small>{day.label}</small></div>)}</div></section>
-        <section class="card"><h2>Fechas de esta semana <span class="muted">({dueThisWeek.length})</span></h2>{dueThisWeek.length ? <ul class="task-list">{dueThisWeek.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {task.dueAt ? fmtDate(task.dueAt) : fmtDate(`${task.scheduledFor}T12:00:00`)}</small></a></li>)}</ul> : <p class="muted">No hay tareas próximas con fecha esta semana.</p>}</section>
+        <section class="card dates-card"><h2>Fechas de esta semana <span class="muted">({dueThisWeek.length})</span></h2>{dueThisWeek.length ? <><ul class="task-list">{dueThisWeek.slice(0, 4).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {task.dueAt ? fmtDate(task.dueAt) : fmtDate(`${task.scheduledFor}T12:00:00`)}</small></a></li>)}</ul>{dueThisWeek.length > 4 && <button type="button" class="button secondary show-all-dates" id="show-all-dates">Ver todas ({dueThisWeek.length})</button>}</> : <p class="muted">No hay tareas próximas con fecha esta semana.</p>}</section>
         <section class="card"><h2>Bloqueadas <span class="muted">({blocked.length})</span></h2>{blocked.length ? <ul class="task-list">{blocked.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · {task.blockedReason}</small></a></li>)}</ul> : <p class="muted">No hay tareas bloqueadas.</p>}</section>
         <section class="card"><h2>Vencidas <span class="muted">({overdue.length})</span></h2>{overdue.length ? <ul class="task-list">{overdue.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · Venció {fmtDate(task.dueAt!)}</small></a></li>)}</ul> : <p class="muted">No hay tareas vencidas.</p>}</section>
       </div>
+      <dialog class="dates-dialog" id="all-dates-dialog" aria-labelledby="all-dates-title"><div class="dialog-heading"><h2 id="all-dates-title">Fechas de esta semana</h2><button type="button" class="button secondary" id="close-all-dates">Cerrar</button></div><ul class="task-list">{dueThisWeek.map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {task.dueAt ? fmtDate(task.dueAt) : fmtDate(`${task.scheduledFor}T12:00:00`)}</small></a></li>)}</ul></dialog>
     </>}
   </main>
 </AppLayout>
+
+<script>
+  const datesDialog = document.querySelector<HTMLDialogElement>('#all-dates-dialog');
+  document.querySelector('#show-all-dates')?.addEventListener('click', () => datesDialog?.showModal());
+  document.querySelector('#close-all-dates')?.addEventListener('click', () => datesDialog?.close());
+</script>
 
 <style>
   .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
@@ -79,6 +86,12 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
   .metric small { color: var(--subtle); }
   .weekly-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; margin-top: 1rem; }
   .completion-chart { min-height: 15rem; }
+  .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 0.75rem; }
+  .dialog-heading h2 { margin-bottom: 0.3rem; }
+  .dates-card { align-self: start; }
+  .show-all-dates { margin-top: 0.8rem; }
+  .dates-dialog { width: min(36rem, calc(100% - 2rem)); max-height: min(80dvh, 44rem); overflow-y: auto; border: 1px solid var(--border); border-radius: 0.8rem; padding: 1.25rem; background: var(--surface); color: var(--text); }
+  .dates-dialog::backdrop { background: rgb(0 0 0 / 0.55); }
   .bars { display: flex; align-items: end; justify-content: space-around; gap: 0.5rem; height: 10rem; padding-top: 1rem; }
   .bar-item { display: grid; justify-items: center; align-items: end; gap: 0.3rem; height: 100%; min-width: 2rem; }
   .bar-item strong, .bar-item small { color: var(--subtle); font-size: 0.8rem; }
