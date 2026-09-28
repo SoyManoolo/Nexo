@@ -5,6 +5,7 @@ import { TaskRepository } from '../repositories/task.repository.js';
 import { TaskAttachmentRepository } from '../repositories/task-attachment.repository.js';
 import { TaskNotFoundError } from './task.service.js';
 import { attachmentPath, removeStoredAttachments } from './task-attachment-storage.js';
+import { InvalidTaskImageError, optimizeTaskImage } from './task-image-optimization.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'application/pdf', 'text/plain']);
@@ -21,6 +22,7 @@ export class TaskAttachmentService {
   constructor(
     private readonly taskRepository = new TaskRepository(),
     private readonly attachmentRepository = new TaskAttachmentRepository(),
+    private readonly uploadDirectory = UPLOAD_DIRECTORY,
   ) {}
 
   async list(taskId: string): Promise<TaskAttachment[]> {
@@ -38,17 +40,29 @@ export class TaskAttachmentService {
       throw new TaskAttachmentValidationError('El archivo debe ocupar entre 1 byte y 10 MB.');
     }
 
+    const originalContent = Buffer.from(await file.arrayBuffer());
+    let stored: { content: Buffer; mimeType: string };
+    try {
+      stored = await optimizeTaskImage(originalContent, mimeType);
+    } catch (error) {
+      if (error instanceof InvalidTaskImageError) throw new TaskAttachmentValidationError(error.message);
+      throw error;
+    }
+    const fileName = file.name.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 255) || 'archivo';
+    const storedName = stored.mimeType === 'image/webp' && mimeType !== 'image/webp'
+      ? `${(fileName.replace(/\.[^.]+$/, '').slice(0, 250) || 'imagen')}.webp`
+      : fileName;
     const storageKey = randomUUID();
-    const path = attachmentPath({ storageKey, mimeType });
-    await mkdir(UPLOAD_DIRECTORY, { recursive: true });
-    await writeFile(path, Buffer.from(await file.arrayBuffer()), { flag: 'wx' });
+    const path = attachmentPath({ storageKey, mimeType: stored.mimeType }, this.uploadDirectory);
+    await mkdir(this.uploadDirectory, { recursive: true });
+    await writeFile(path, stored.content, { flag: 'wx' });
     try {
       return await this.attachmentRepository.create({
         taskId,
         storageKey,
-        fileName: file.name.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 255) || 'archivo',
-        mimeType,
-        size: file.size,
+        fileName: storedName,
+        mimeType: stored.mimeType,
+        size: stored.content.length,
       });
     } catch (error) {
       await unlink(path).catch(() => undefined);
@@ -60,7 +74,7 @@ export class TaskAttachmentService {
     await this.requireTask(taskId);
     const row = await this.attachmentRepository.find(taskId, attachmentId);
     if (!row) throw new TaskAttachmentValidationError('Archivo adjunto no encontrado.');
-    const content = await readFile(attachmentPath(row));
+    const content = await readFile(attachmentPath(row, this.uploadDirectory));
     const { id, taskId: ownerTaskId, fileName, mimeType, size, createdAt } = row;
     return {
       metadata: { id, taskId: ownerTaskId, fileName, mimeType, size, createdAt: createdAt.toISOString() },
@@ -72,7 +86,7 @@ export class TaskAttachmentService {
     await this.requireTask(taskId);
     const row = await this.attachmentRepository.delete(taskId, attachmentId);
     if (!row) throw new TaskAttachmentValidationError('Archivo adjunto no encontrado.');
-    await removeStoredAttachments([row]);
+    await removeStoredAttachments([row], this.uploadDirectory);
   }
 
   private async requireTask(taskId: string): Promise<void> {

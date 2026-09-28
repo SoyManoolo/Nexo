@@ -302,4 +302,7 @@ DELETE /tasks/550e8400-e29b-41d4-a716-446655440003
 multipart con el campo `file`; `GET /tasks/:id/attachments/:attachmentId` devuelve el archivo y
 `DELETE` elimina el adjunto. Se admiten PNG, JPEG, WebP, PDF y TXT de hasta 10 MB. Los datos del
 archivo se guardan en PostgreSQL y el contenido en el directorio `NEXO_UPLOADS_DIR` (por defecto,
-`uploads`). En Docker Compose, el directorio usa el volumen persistente `uploads_data`.
+`uploads`). Antes de guardarlas, las imágenes válidas se redimensionan hasta 2560 píxeles por lado y
+se convierten a WebP si el resultado ocupa menos que el original; los WebP animados conservan sus
+fotogramas y los PDF y TXT no se transforman. En Docker Compose, el directorio usa el volumen
+persistente `uploads_data`.
