@@ -125,7 +125,9 @@ test('flujos web: proyecto, inbox, completar y archivar', { timeout: 60_000 }, a
     { name: 'Proyecto de prueba', description: 'Descripción', color: '#4d8564' });
   assert.equal(created.status, 303);
   assert.equal(created.headers.get('location'), '/projects');
-  assert.match(await (await fetch(`${base}/projects`)).text(), /Proyecto de prueba/);
+  const projectsPage = await (await fetch(`${base}/projects`)).text();
+  assert.match(projectsPage, /Proyecto de prueba/);
+  assert.match(projectsPage, /class="project-header-actions"[\s\S]*Crear proyecto[\s\S]*Importar desde GitHub/);
   assert.deepEqual(calls.find((call) => call.method === 'POST' && call.path === '/projects').body,
     { name: 'Proyecto de prueba', description: 'Descripción', color: '#4d8564' });
   const projectPage = await (await fetch(`${base}/projects/${projects[0].id}`)).text();

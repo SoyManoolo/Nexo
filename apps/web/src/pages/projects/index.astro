@@ -114,8 +114,10 @@ for (const task of tasks) {
         <h1>Proyectos</h1>
         <p class="page-intro">Todo lo que tienes entre manos, en un solo lugar.</p>
       </div>
-      <button class="button" type="button" id="open-project-modal">Crear proyecto</button>
-      <a class="button secondary" href="/projects?import=github">Importar desde GitHub</a>
+      <div class="project-header-actions">
+        <button class="button" type="button" id="open-project-modal">Crear proyecto</button>
+        <a class="button secondary" href="/projects?import=github">Importar desde GitHub</a>
+      </div>
     </header>
 
     {errorMessage && <div class="notice error" role="alert"><p>{errorMessage}</p><a href="/projects">Volver a intentar</a></div>}
@@ -192,6 +194,7 @@ for (const task of tasks) {
 </script>
 
 <style>
+  .project-header-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; }
   .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #dce2da; }
   .tabs a { padding: 0.6rem 0.2rem; text-decoration: none; color: #58665c; }
   .tabs a[aria-current="page"] { border-bottom: 2px solid #316d4b; color: #173a27; font-weight: 700; }
