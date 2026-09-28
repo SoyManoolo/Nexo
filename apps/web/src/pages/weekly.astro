@@ -105,6 +105,7 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
   .metric strong { font-size: 2rem; line-height: 1.1; }
   .metric small { color: var(--subtle); }
   .weekly-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; margin-top: 1rem; }
+  .weekly-grid > * { min-width: 0; }
   .completion-chart { grid-column: 1; grid-row: 1; min-height: 15rem; }
   .section-heading, .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 0.75rem; }
   .section-heading h2, .dialog-heading h2 { margin-bottom: 0.3rem; }
@@ -116,7 +117,7 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
   .show-all-dates { margin-top: 0.8rem; }
   .dates-dialog { width: min(36rem, calc(100% - 2rem)); max-height: min(80dvh, 44rem); overflow-y: auto; border: 1px solid var(--border); border-radius: 0.8rem; padding: 1.25rem; background: var(--surface); color: var(--text); }
   .dates-dialog::backdrop { background: rgb(0 0 0 / 0.55); }
-  .history-scroll { overflow-x: auto; }
+  .history-scroll { max-width: 100%; overflow-x: auto; }
   .history-chart svg { display: block; width: 100%; min-width: 30rem; height: auto; }
   .chart-axis { stroke: var(--border); }
   .chart-line { fill: none; stroke: var(--accent-text); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
@@ -133,5 +134,10 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
   .task-list a:hover strong { color: var(--accent-text); }
   .task-list small { color: var(--subtle); }
   @media (max-width: 850px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 650px) { .weekly-grid { grid-template-columns: 1fr; } .dates-card { grid-column: 1; grid-row: 3; } }
+  @media (max-width: 650px) {
+    .weekly-grid { grid-template-columns: minmax(0, 1fr); }
+    .dates-card { grid-column: 1; grid-row: 3; }
+    .section-heading { flex-wrap: wrap; }
+    .history-chart svg { min-width: 28rem; }
+  }
 </style>

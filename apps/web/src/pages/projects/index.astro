@@ -151,8 +151,8 @@ for (const task of tasks) {
         )}
         <ul class="projects">
           {visibleProjects.map((project) => (
-            <li class="project-item">
-              <a class="project card" href={`/projects/${project.id}`}>
+            <li class="project-item card">
+              <a class="project" href={`/projects/${project.id}`}>
                 <span class="project-color" style={`background-color: ${project.color ?? '#4d8564'}`} aria-hidden="true"></span>
                 <span><strong>{project.name}</strong>{project.description && <small>{project.description}</small>}</span>
                 {(() => {
@@ -274,7 +274,7 @@ for (const task of tasks) {
   .project-menu-options { position: absolute; z-index: 2; right: 0; top: calc(100% + 0.3rem); min-width: 12rem; border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.3rem; background: var(--surface); box-shadow: 0 0.6rem 1.4rem rgb(0 0 0 / 0.15); }
   .project-menu-options button { display: block; width: 100%; border: 0; border-radius: 0.35rem; padding: 0.6rem; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
   .project-menu-options button:hover { background: var(--accent-soft); }
-  .project:hover { border-color: #7faa8c; }
+  .project-item:hover { border-color: #7faa8c; }
   .project span:nth-child(2) { flex: 1; min-width: 0; }
   .project strong, .project small { display: block; }
   .project small { margin-top: 0.3rem; color: #58665c; line-height: 1.4; }
@@ -290,10 +290,11 @@ for (const task of tasks) {
   .modal-close:hover { background: #edf5ee; color: #27583b; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.65rem; }
   @media (max-width: 600px) {
-    .project-item { align-items: stretch; flex-wrap: wrap; }
-    .project-menu { margin-left: auto; }
+    .project-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+    .project-menu { grid-column: 2; grid-row: 1; }
+    .restore-project-form { grid-column: 1 / -1; }
     .restore-project-form .button { width: 100%; }
-    .project { display: grid; grid-template-columns: 0.8rem minmax(0, 1fr) auto; align-items: start; gap: 0.65rem 0.75rem; }
+    .project { display: grid; grid-column: 1; grid-row: 1; grid-template-columns: 0.8rem minmax(0, 1fr) auto; align-items: start; gap: 0.65rem 0.75rem; }
     .project > span:nth-child(2) { grid-column: 2; grid-row: 1; min-width: 0; overflow-wrap: anywhere; }
     .project-color { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
     .project-overview { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; }

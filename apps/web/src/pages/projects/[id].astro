@@ -219,7 +219,7 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
             {project.description && <p class="page-intro">{project.description}</p>}
           </div>
           <div class="project-actions">
-            <button class="button secondary" type="button" id="open-project-modal">Detalles del proyecto</button>
+            <button class="button secondary" type="button" id="open-project-modal"><span class="details-label-full">Detalles del proyecto</span><span class="details-label-short">Detalles</span></button>
             {project.status === 'archived' && <form method="post"><input type="hidden" name="intent" value="restore" /><button class="button" type="submit">Restaurar proyecto</button></form>}
             {project.status === 'active' && <button class="button" type="button" id="open-task-modal">Añadir tarea</button>}
           </div>
@@ -567,6 +567,90 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
       await moveTask(taskId, targetStatus);
     });
   });
+
+  // Mobile browsers do not reliably dispatch HTML drag events for touch gestures.
+  let touchTimer: ReturnType<typeof setTimeout> | null = null;
+  let touchCard: HTMLElement | null = null;
+  let touchGhost: HTMLElement | null = null;
+  let touchTarget: HTMLElement | null = null;
+  let touchStart: { x: number; y: number } | null = null;
+  let suppressCardClickUntil = 0;
+
+  function clearTouchDrag(): void {
+    if (touchTimer) clearTimeout(touchTimer);
+    touchTimer = null;
+    touchCard?.classList.remove('touch-dragging');
+    touchGhost?.remove();
+    touchTarget?.classList.remove('is-drop-target');
+    touchCard = touchGhost = touchTarget = null;
+    touchStart = null;
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-task-card]').forEach((card) => {
+    card.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 1) return;
+      clearTouchDrag();
+      const touch = event.touches[0];
+      touchCard = card;
+      touchStart = { x: touch.clientX, y: touch.clientY };
+      touchTimer = setTimeout(() => {
+        if (!touchCard) return;
+        touchGhost = card.cloneNode(true) as HTMLElement;
+        touchGhost.removeAttribute('href');
+        touchGhost.classList.add('touch-drag-ghost');
+        touchGhost.style.left = `${touchStart!.x}px`;
+        touchGhost.style.top = `${touchStart!.y}px`;
+        document.body.append(touchGhost);
+        card.classList.add('touch-dragging');
+        suppressCardClickUntil = Date.now() + 700;
+        touchTimer = null;
+      }, 300);
+    }, { passive: true });
+    card.addEventListener('click', (event) => {
+      if (Date.now() >= suppressCardClickUntil) return;
+      event.preventDefault();
+      suppressCardClickUntil = 0;
+    }, true);
+  });
+
+  document.addEventListener('touchmove', (event) => {
+    if (!touchCard || !touchStart || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    if (!touchGhost) {
+      if (Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y) > 10) clearTouchDrag();
+      return;
+    }
+    event.preventDefault();
+    if (touch.clientY < 70) window.scrollBy(0, -12);
+    else if (touch.clientY > window.innerHeight - 70) window.scrollBy(0, 12);
+    touchGhost.style.left = `${touch.clientX}px`;
+    touchGhost.style.top = `${touch.clientY}px`;
+    const column = document.elementFromPoint(touch.clientX, touch.clientY)?.closest<HTMLElement>('[data-task-column]') ?? null;
+    if (column !== touchTarget) {
+      touchTarget?.classList.remove('is-drop-target');
+      touchTarget = column;
+      touchTarget?.classList.add('is-drop-target');
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', (event) => {
+    if (!touchGhost || !touchCard) { clearTouchDrag(); return; }
+    const taskId = touchCard.dataset.taskId;
+    const touch = event.changedTouches[0];
+    const column = touch && document.elementFromPoint(touch.clientX, touch.clientY)?.closest<HTMLElement>('[data-task-column]');
+    const targetStatus = column?.dataset.status;
+    clearTouchDrag();
+    suppressCardClickUntil = Date.now() + 700;
+    if (!taskId || !targetStatus) return;
+    if (targetStatus === 'blocked') {
+      pendingBlockedTaskId = taskId;
+      blockReasonModal?.showModal();
+      blockReason?.focus();
+    } else {
+      void moveTask(taskId, targetStatus);
+    }
+  });
+  document.addEventListener('touchcancel', clearTouchDrag);
 </script>
 
 <style>
@@ -598,6 +682,7 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
   .activity-hint { margin-bottom: 0; }
   .github-error { color: #9b382c !important; }
   .project-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.65rem; }
+  .details-label-short { display: none; }
   .view-switcher { display: inline-flex; overflow: hidden; border: 1px solid #b9c8bb; border-radius: 0.5rem; }
   .view-switcher a { padding: 0.38rem 0.65rem; color: #316d4b; font-size: 0.88rem; font-weight: 700; text-decoration: none; }
   .view-switcher a + a { border-left: 1px solid #b9c8bb; }
@@ -607,6 +692,7 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
   .task-group { border-top: 1px solid var(--border); padding-top: 0.8rem; }
   .task-group h3 { margin: 0 0 0.7rem; font-size: 1rem; }
   .filters { display: flex; align-items: end; gap: 0.6rem; margin-bottom: 1rem; }
+  .tasks-header + .filters { margin-top: 0.9rem; }
   .filters .field { flex: 0 1 12rem; }
   .task-link { display: flex; justify-content: space-between; gap: 1rem; text-decoration: none; }
   .task-link:hover { border-color: #7faa8c; }
@@ -618,6 +704,8 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
   .task-column .task-list { gap: 0.5rem; }
   .task-column .task-list { max-height: 32rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
   .board-task-link { display: grid; gap: 0.35rem; }
+  .board-task-link.touch-dragging { opacity: 0.45; }
+  .touch-drag-ghost { position: fixed; z-index: 100; width: min(16rem, 70vw); pointer-events: none; opacity: 0.9; transform: translate(-50%, -50%); box-shadow: 0 0.8rem 1.5rem rgb(0 0 0 / 0.25); }
   .empty-column { margin: 0; color: #758177; font-size: 0.9rem; }
   .task-modal { width: min(36rem, calc(100% - 2rem)); border: 0; border-radius: 0.9rem; padding: 0; box-shadow: 0 1.5rem 4rem rgb(25 45 32 / 0.3); }
   .task-modal::backdrop { background: rgb(20 35 25 / 0.45); }
@@ -640,7 +728,12 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
   .delete-panel { border-top: 1px solid #dce2da; padding: 1rem 1.25rem 1.25rem; }
   @media (max-width: 800px) { .recent-updates { grid-template-columns: 1fr; } }
   @media (max-width: 600px) {
-    .project-actions, .tasks-header, .task-link, .filters, .summary-heading, .activity-heading { flex-direction: column; align-items: stretch; }
+    .tasks-header, .task-link, .filters, .summary-heading, .activity-heading { flex-direction: column; align-items: stretch; }
+    .project-actions { justify-content: flex-start; width: 100%; }
+    .project-actions > button, .project-actions > form { flex: 1 1 auto; }
+    .project-actions > form .button { width: 100%; }
+    .details-label-full { display: none; }
+    .details-label-short { display: inline; }
     .filters .field { flex: 1 1 auto; width: 100%; }
     .task-board { grid-template-columns: minmax(0, 1fr); min-height: 0; overflow: visible; }
     .view-switcher { align-self: flex-start; }
