@@ -11,11 +11,6 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   output: 'server',
   security: {
-    allowedDomains: [
-      { hostname: 'localhost' },
-      { hostname: '127.0.0.1' },
-      { hostname: '192.168.1.107' },
-      { hostname: '100.64.0.1' },
-    ],
+    allowedDomains,
   },
 });
