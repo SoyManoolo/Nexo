@@ -24,6 +24,7 @@ const previousWeekStart = addDays(weekStart, -7);
 const startKey = dayKey(weekStart);
 const endKey = dayKey(addDays(nextWeekStart, -1));
 const inRange = (value: string | null, start: string, end: string) => Boolean(value && value >= start && value < end);
+const completedDay = (task: Task) => task.completedAt ? localDay.format(new Date(task.completedAt)) : null;
 const weekLabel = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 let tasks: Task[] = [];
 let projects: Project[] = [];
@@ -36,8 +37,8 @@ try {
   errorMessage = 'No se pudo cargar el resumen semanal. Comprueba la conexión con la API.';
 }
 const projectNames = new Map(projects.map((project) => [project.id, project.name]));
-const completedThisWeek = tasks.filter((task) => inRange(task.completedAt, startKey, dayKey(nextWeekStart))).length;
-const completedLastWeek = tasks.filter((task) => inRange(task.completedAt, dayKey(previousWeekStart), startKey)).length;
+const completedThisWeek = tasks.filter((task) => inRange(completedDay(task), startKey, dayKey(nextWeekStart))).length;
+const completedLastWeek = tasks.filter((task) => inRange(completedDay(task), dayKey(previousWeekStart), startKey)).length;
 const createdThisWeek = tasks.filter((task) => inRange(localDay.format(new Date(task.createdAt)), startKey, dayKey(nextWeekStart))).length;
 const open = tasks.filter((task) => task.status !== 'done');
 const blocked = open.filter((task) => task.status === 'blocked');
@@ -49,7 +50,7 @@ const dueThisWeek = open.filter((task) => {
 const days = Array.from({ length: 7 }, (_, index) => {
   const date = addDays(selectedWeekStart, index);
   const key = dayKey(date);
-  const count = tasks.filter((task) => task.completedAt && localDay.format(new Date(task.completedAt)) === key).length;
+  const count = tasks.filter((task) => completedDay(task) === key).length;
   const label = new Intl.DateTimeFormat('es-ES', { weekday: 'short', timeZone: 'UTC' }).format(date);
   return { key, label, count };
 });
@@ -57,8 +58,7 @@ const maxDaily = Math.max(1, ...days.map((day) => day.count));
 const weeklyHistory = Array.from({ length: 8 }, (_, index) => {
   const start = addDays(weekStart, (index - 7) * 7);
   const end = addDays(start, 7);
-  const count = tasks.filter((task) => task.completedAt &&
-    inRange(localDay.format(new Date(task.completedAt)), dayKey(start), dayKey(end))).length;
+  const count = tasks.filter((task) => inRange(completedDay(task), dayKey(start), dayKey(end))).length;
   return { label: weekLabel.format(start), count };
 });
 const historyMax = Math.max(1, ...weeklyHistory.map((week) => week.count));
