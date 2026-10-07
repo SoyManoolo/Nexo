@@ -42,33 +42,57 @@ test(
       { typname: 'task_status', enumlabel: 'done' },
     ]);
 
-    await pool.query('BEGIN');
+    const client = await pool.connect();
     try {
-      const project = await pool.query<{ id: string; status: string }>(
+      await client.query('BEGIN');
+      const project = await client.query<{ id: string; status: string }>(
         `INSERT INTO projects (name) VALUES ('schema-test') RETURNING id, status`,
       );
       assert.equal(project.rows[0].status, 'active');
 
-      const task = await pool.query<{ project_id: string; status: string; priority: string; pinned: boolean }>(
-        `INSERT INTO tasks (project_id, title)
-       VALUES ($1, 'schema-test-task')
-       RETURNING project_id, status, priority, pinned`,
+      const task = await client.query<{
+        project_id: string;
+        ticket_number: number;
+        status: string;
+        priority: string;
+        pinned: boolean;
+      }>(
+        `INSERT INTO tasks (project_id, ticket_number, title)
+       VALUES ($1, 1, 'schema-test-task')
+       RETURNING project_id, ticket_number, status, priority, pinned`,
         [project.rows[0].id],
       );
       assert.deepEqual(task.rows[0], {
         project_id: project.rows[0].id,
+        ticket_number: 1,
         status: 'pending',
         priority: 'medium',
         pinned: false,
       });
 
+      await client.query('SAVEPOINT invalid_task');
       await assert.rejects(
-        pool.query(
-          `INSERT INTO tasks (title, status, blocked_reason) VALUES ('invalid', 'pending', 'reason')`,
+        client.query(
+          `INSERT INTO tasks (ticket_number, title, status, blocked_reason)
+           VALUES (2, 'invalid', 'pending', 'reason')`,
         ),
+        { code: '23514', constraint: 'tasks_blocked_reason_consistency' },
+      );
+      await client.query('ROLLBACK TO SAVEPOINT invalid_task');
+
+      await assert.rejects(
+        client.query(
+          `INSERT INTO tasks (project_id, title) VALUES ($1, 'missing-ticket-number')`,
+          [project.rows[0].id],
+        ),
+        { code: '23502', column: 'ticket_number' },
       );
     } finally {
-      await pool.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } finally {
+        client.release();
+      }
     }
   },
 );
