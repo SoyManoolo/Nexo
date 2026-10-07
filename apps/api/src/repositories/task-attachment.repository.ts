@@ -34,11 +34,16 @@ export class TaskAttachmentRepository {
     return row ?? null;
   }
 
-  async delete(taskId: string, id: string): Promise<TaskAttachmentRow | null> {
-    const [row] = await db.delete(taskAttachments).where(
-      and(eq(taskAttachments.taskId, taskId), eq(taskAttachments.id, id)),
-    ).returning();
-    return row ?? null;
+  async delete(taskId: string, id: string, removeFile: (attachment: TaskAttachmentRow) => Promise<void>): Promise<TaskAttachmentRow | null> {
+    return db.transaction(async (transaction) => {
+      const [row] = await transaction.select().from(taskAttachments).where(
+        and(eq(taskAttachments.taskId, taskId), eq(taskAttachments.id, id)),
+      ).for('update');
+      if (!row) return null;
+      await removeFile(row);
+      await transaction.delete(taskAttachments).where(eq(taskAttachments.id, id));
+      return row;
+    });
   }
 
   async expiredImages(cutoff: Date): Promise<TaskAttachmentRow[]> {
