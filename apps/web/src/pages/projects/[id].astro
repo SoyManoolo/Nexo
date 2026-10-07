@@ -472,9 +472,8 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
         body: form,
       });
       if (!response.ok) throw new Error(`El servidor respondió con ${response.status}.`);
-      moveTaskCard(taskId, targetStatus);
-      if (targetStatus === 'blocked') closeBlockedReasonModal();
-      if (moveError) moveError.hidden = true;
+      // Volver a pedir la página para mostrar el tablero, el resumen y la actividad confirmados por el servidor.
+      window.location.reload();
     } catch (error) {
       console.error('No se pudo mover la tarea:', error);
       if (targetStatus === 'blocked') closeBlockedReasonModal();
@@ -483,43 +482,6 @@ const taskFormTags = selectedTags(taskForm ?? new FormData());
         moveError.hidden = false;
         moveError.focus();
       }
-    }
-  }
-
-  function moveTaskCard(taskId: string, targetStatus: string): void {
-    const card = Array.from(document.querySelectorAll<HTMLElement>('[data-task-card]'))
-      .find((candidate) => candidate.dataset.taskId === taskId);
-    const targetColumn = Array.from(document.querySelectorAll<HTMLElement>('[data-task-column]'))
-      .find((column) => column.dataset.status === targetStatus);
-    if (!card || !targetColumn) return;
-
-    const sourceColumn = card.closest<HTMLElement>('[data-task-column]');
-    if (sourceColumn === targetColumn) return;
-
-    let taskList = targetColumn.querySelector<HTMLUListElement>('ul.task-list');
-    if (!taskList) {
-      taskList = document.createElement('ul');
-      taskList.className = 'task-list';
-      targetColumn.querySelector('.empty-column')?.remove();
-      targetColumn.append(taskList);
-    }
-    taskList.append(card.parentElement!);
-    updateColumnCount(sourceColumn);
-    updateColumnCount(targetColumn);
-  }
-
-  function updateColumnCount(column: HTMLElement | null): void {
-    if (!column) return;
-    const count = column.querySelectorAll('[data-task-card]').length;
-    const countLabel = column.querySelector<HTMLElement>('h3 .muted');
-    if (countLabel) countLabel.textContent = `(${count})`;
-    if (count === 0 && !column.querySelector('.empty-column')) {
-      const emptyMessage = document.createElement('p');
-      emptyMessage.className = 'empty-column';
-      emptyMessage.textContent = 'Sin tareas';
-      column.append(emptyMessage);
-    } else if (count > 0) {
-      column.querySelector('.empty-column')?.remove();
     }
   }
 
