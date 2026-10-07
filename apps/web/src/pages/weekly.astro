@@ -43,9 +43,12 @@ const createdThisWeek = tasks.filter((task) => inRange(localDay.format(new Date(
 const open = tasks.filter((task) => task.status !== 'done');
 const blocked = open.filter((task) => task.status === 'blocked');
 const overdue = open.filter((task) => task.dueAt && localDay.format(new Date(task.dueAt)) < today);
-const dueThisWeek = open.filter((task) => {
-  const dueDay = task.dueAt ? localDay.format(new Date(task.dueAt)) : task.scheduledFor;
-  return dueDay && dueDay >= today && dueDay <= endKey;
+const datesThisWeek = open.flatMap((task) => {
+  const dueDay = task.dueAt ? localDay.format(new Date(task.dueAt)) : null;
+  const scheduledDay = task.scheduledFor;
+  const day = scheduledDay && scheduledDay >= today && scheduledDay <= endKey
+    ? scheduledDay : dueDay && dueDay >= today && dueDay <= endKey ? dueDay : null;
+  return day ? [{ task, day }] : [];
 });
 const days = Array.from({ length: 7 }, (_, index) => {
   const date = addDays(selectedWeekStart, index);
@@ -67,6 +70,7 @@ const linePoints = weeklyHistory.map((week, index) =>
 const dateRange = `${weekLabel.format(weekStart)} – ${weekLabel.format(addDays(nextWeekStart, -1))}`;
 const selectedRange = `${weekLabel.format(selectedWeekStart)} – ${weekLabel.format(addDays(selectedWeekEnd, -1))}`;
 const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone }).format(new Date(iso));
+const fmtDay = (day: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(parseDay(day));
 ---
 
 <AppLayout title="Esta semana · Nexo" section="weekly">
@@ -81,12 +85,12 @@ const fmtDate = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeri
       </section>
       <div class="weekly-grid">
         <section class="card completion-chart"><div class="section-heading"><div><h2>Completadas por día</h2><p class="muted">{selectedRange}</p></div><nav class="week-nav" aria-label="Semana de completadas"><a href={`/weekly?week=${dayKey(addDays(selectedWeekStart, -7))}`} aria-label="Semana anterior">←</a><a href="/weekly">Actual</a><a href={`/weekly?week=${dayKey(selectedWeekEnd)}`} aria-label="Semana siguiente">→</a></nav></div><div class="bars" role="img" aria-label={days.map((day) => `${day.label}: ${day.count}`).join(', ')}>{days.map((day) => <div class="bar-item"><strong>{day.count || ''}</strong><span class="bar-track"><i style={`--bar-height:${Math.max(5, day.count / maxDaily * 100)}%`}></i></span><small>{day.label}</small></div>)}</div></section>
-        <section class="card dates-card"><h2>Fechas de esta semana <span class="muted">({dueThisWeek.length})</span></h2>{dueThisWeek.length ? <><ul class="task-list">{dueThisWeek.slice(0, 4).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {task.dueAt ? fmtDate(task.dueAt) : fmtDate(`${task.scheduledFor}T12:00:00`)}</small></a></li>)}</ul>{dueThisWeek.length > 4 && <button type="button" class="button secondary show-all-dates" id="show-all-dates">Ver todas ({dueThisWeek.length})</button>}</> : <p class="muted">No hay tareas próximas con fecha esta semana.</p>}</section>
+        <section class="card dates-card"><h2>Fechas de esta semana <span class="muted">({datesThisWeek.length})</span></h2>{datesThisWeek.length ? <><ul class="task-list">{datesThisWeek.slice(0, 4).map(({ task, day }) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {fmtDay(day)}</small></a></li>)}</ul>{datesThisWeek.length > 4 && <button type="button" class="button secondary show-all-dates" id="show-all-dates">Ver todas ({datesThisWeek.length})</button>}</> : <p class="muted">No hay tareas próximas con fecha esta semana.</p>}</section>
         <section class="card history-chart"><h2>Completadas por semana</h2><div class="history-scroll"><svg viewBox="0 0 576 160" role="img" aria-label={weeklyHistory.map((week) => `${week.label}: ${week.count}`).join(', ')}><line x1="20" y1="124" x2="560" y2="124" class="chart-axis" /><polyline points={linePoints} class="chart-line" />{weeklyHistory.map((week, index) => <g><circle cx={36 + index * 72} cy={124 - week.count / historyMax * 100} r="5" class="chart-point" /><text x={36 + index * 72} y="149" text-anchor="middle">{week.label}</text><text x={36 + index * 72} y={Math.max(14, 113 - week.count / historyMax * 100)} text-anchor="middle">{week.count}</text></g>)}</svg></div></section>
         <section class="card"><h2>Bloqueadas <span class="muted">({blocked.length})</span></h2>{blocked.length ? <ul class="task-list">{blocked.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · {task.blockedReason}</small></a></li>)}</ul> : <p class="muted">No hay tareas bloqueadas.</p>}</section>
         <section class="card"><h2>Vencidas <span class="muted">({overdue.length})</span></h2>{overdue.length ? <ul class="task-list">{overdue.slice(0, 8).map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{projectNames.get(task.projectId ?? '') ?? 'Inbox'} · Venció {fmtDate(task.dueAt!)}</small></a></li>)}</ul> : <p class="muted">No hay tareas vencidas.</p>}</section>
       </div>
-      <dialog class="dates-dialog" id="all-dates-dialog" aria-labelledby="all-dates-title"><div class="dialog-heading"><h2 id="all-dates-title">Fechas de esta semana</h2><button type="button" class="button secondary" id="close-all-dates">Cerrar</button></div><ul class="task-list">{dueThisWeek.map((task) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {task.dueAt ? fmtDate(task.dueAt) : fmtDate(`${task.scheduledFor}T12:00:00`)}</small></a></li>)}</ul></dialog>
+      <dialog class="dates-dialog" id="all-dates-dialog" aria-labelledby="all-dates-title"><div class="dialog-heading"><h2 id="all-dates-title">Fechas de esta semana</h2><button type="button" class="button secondary" id="close-all-dates">Cerrar</button></div><ul class="task-list">{datesThisWeek.map(({ task, day }) => <li><a href={`/tasks/${task.id}`}><strong>{task.title}</strong><small>{task.projectId ? projectNames.get(task.projectId) ?? 'Proyecto' : 'Inbox'} · {fmtDay(day)}</small></a></li>)}</ul></dialog>
     </>}
   </main>
 </AppLayout>
