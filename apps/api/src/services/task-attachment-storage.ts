@@ -20,9 +20,7 @@ export async function removeStoredAttachments(attachments: StoredTaskAttachment[
     try {
       await unlink(attachmentPath(attachment, directory));
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error('No se pudo eliminar el archivo adjunto de la tarea:', error);
-      }
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
   }));
 }
