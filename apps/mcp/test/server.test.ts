@@ -3,7 +3,31 @@ import test from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { NexoApiClient } from '@nexo/api-client';
-import { createNexoMcpServer } from '../src/server.js';
+import { createNexoMcpServer, requestHasValidToken, startMcpServer } from '../src/server.js';
+
+test('rejects missing or blank MCP tokens before opening a listener', () => {
+  const originalToken = process.env.MCP_AUTH_TOKEN;
+  delete process.env.MCP_AUTH_TOKEN;
+  try {
+    assert.throws(() => startMcpServer(), /MCP_AUTH_TOKEN must be set/);
+  } finally {
+    if (originalToken === undefined) delete process.env.MCP_AUTH_TOKEN;
+    else process.env.MCP_AUTH_TOKEN = originalToken;
+  }
+  assert.throws(() => startMcpServer({ authToken: '' }), /MCP_AUTH_TOKEN must be set/);
+  assert.throws(() => startMcpServer({ authToken: '   ' }), /MCP_AUTH_TOKEN must be set/);
+});
+
+test('requires the correct Bearer token for every MCP request', () => {
+  const token = 'sample-token';
+  assert.equal(requestHasValidToken(undefined, token), false);
+  assert.equal(requestHasValidToken('Bearer sample-token', ''), false);
+  assert.equal(requestHasValidToken('Bearer sample-token', '  '), false);
+  assert.equal(requestHasValidToken('sample-token', token), false);
+  assert.equal(requestHasValidToken('Bearer wrong-token', token), false);
+  assert.equal(requestHasValidToken('Bearer sample-token extra', token), false);
+  assert.equal(requestHasValidToken('Bearer sample-token', token), true);
+});
 
 test('registers the Nexo tools and forwards task writes to the API client', async () => {
   const taskId = '550e8400-e29b-41d4-a716-446655440003';

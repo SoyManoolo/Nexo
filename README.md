@@ -167,16 +167,18 @@ El servidor independiente de `apps/mcp` publica `http://127.0.0.1:3100/mcp` medi
 En otra terminal, arráncalo localmente:
 
 ```powershell
+$env:MCP_AUTH_TOKEN = '<token-largo-y-aleatorio>'
 pnpm.cmd --filter @nexo/mcp dev
 ```
 
-Comprueba el catálogo con el Inspector MCP:
+Con `MCP_AUTH_TOKEN` configurado también en la terminal del cliente, comprueba el catálogo con el Inspector MCP. El comando `inspect` envía `Authorization: Bearer` con ese valor:
 
 ```powershell
+$env:MCP_AUTH_TOKEN = '<mismo-token>'
 pnpm.cmd --filter @nexo/mcp inspect
 ```
 
-Para abrir el Inspector visual en lugar del modo CLI, ejecuta `pnpm.cmd --filter @nexo/mcp exec mcp-inspector` y configura el transporte **Streamable HTTP** con `http://127.0.0.1:3100/mcp`.
+Para abrir el Inspector visual en lugar del modo CLI, ejecuta `pnpm.cmd --filter @nexo/mcp exec mcp-inspector` y configura el transporte **Streamable HTTP** con `http://127.0.0.1:3100/mcp` y la cabecera `Authorization: Bearer <token>`.
 
 ### Conexión desde Codex y Claude Code
 
