@@ -10,7 +10,7 @@
     "check": "tsc --noEmit --project tsconfig.json",
     "test": "tsx --test test/*.test.ts",
     "start": "tsx dist/index.js",
-    "inspect": "mcp-inspector --cli --server-url http://127.0.0.1:3100/mcp --transport http --method tools/list"
+    "inspect": "node scripts/inspect.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

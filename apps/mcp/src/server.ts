@@ -1,5 +1,5 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer, type ServerResponse } from 'node:http';
 import { NexoApiClient } from '@nexo/api-client';
 import type { CreateTaskInput, ListTasksQuery, UpdateTaskInput } from '@nexo/contracts';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -131,12 +131,9 @@ function jsonResult(value: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }] };
 }
 
-function requestHasValidToken(
-  request: IncomingMessage,
-  expectedToken: string | undefined,
-): boolean {
-  if (!expectedToken) return true;
-  const authorization = request.headers.authorization ?? '';
+export function requestHasValidToken(authorization: string | undefined, expectedToken: string): boolean {
+  if (!expectedToken.trim()) return false;
+  authorization ??= '';
   const prefix = 'Bearer ';
   if (!authorization.startsWith(prefix)) return false;
 
@@ -161,6 +158,9 @@ export function startMcpServer(
   const host = options.host ?? process.env.MCP_HOST ?? '127.0.0.1';
   const port = options.port ?? Number.parseInt(process.env.MCP_PORT ?? '3100', 10);
   const authToken = options.authToken ?? process.env.MCP_AUTH_TOKEN;
+  if (!authToken?.trim()) {
+    throw new Error('MCP_AUTH_TOKEN must be set to a non-empty value.');
+  }
   const apiBaseUrl = process.env.NEXO_API_BASE_URL ?? 'http://127.0.0.1:3000';
   const sessions = new Map<string, StreamableHTTPServerTransport>();
 
@@ -182,7 +182,7 @@ export function startMcpServer(
       return;
     }
 
-    if (!requestHasValidToken(request, authToken)) {
+    if (!requestHasValidToken(request.headers.authorization, authToken)) {
       sendJson(response, 401, {
         error: 'unauthorized',
         message: 'A valid bearer token is required.',
