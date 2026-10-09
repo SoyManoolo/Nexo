@@ -16,6 +16,7 @@ La aplicación web y la API están implementadas y usan PostgreSQL. Actualmente 
 - revisar un resumen semanal, buscar tareas y proyectos, filtrar por estado, prioridad, proyecto y etiquetas;
 - guardar etiquetas en tareas, notas de contexto en proyectos y adjuntar capturas/documentos a tareas;
 - usar tema claro u oscuro y contraer la navegación lateral.
+- configurar desde **Automatizaciones** los informes semanales: proyectos, foco técnico, destinatario, horario, historial de ejecuciones y estado de entrega.
 
 El servidor MCP expone proyectos y tareas por Streamable HTTP para conectarse a Codex y Claude Code.
 
@@ -129,6 +130,41 @@ En **Ajustes → GitHub**, guarda un token de acceso personal con permisos de so
 
 Si PostgreSQL local usa otras credenciales o puerto, actualiza `DATABASE_URL` en las terminales donde ejecutas la migración y la API. En PowerShell, usa `pnpm.cmd` si la política de ejecución bloquea `pnpm.ps1`; en Linux/macOS usa `pnpm`. Cambiar `POSTGRES_PASSWORD` en `.env` no cambia la contraseña de un volumen PostgreSQL que ya se haya inicializado.
 
+### Informes semanales automatizados
+
+Nexo es el panel de configuración e historial para los informes semanales; el proceso que ejecuta
+Codex CLI y envía correo sigue siendo un servicio de usuario de la GEEKOM. Esta separación evita
+que la aplicación web pueda leer credenciales SMTP o ejecutar comandos del host.
+
+En **Automatizaciones** se puede editar:
+
+- si el flujo está activo, destinatario, día, hora y zona horaria;
+- qué repositorios participan, su proyecto Nexo asociado y el foco técnico del análisis;
+- el historial sincronizado de informes, envíos y ejecuciones.
+
+El servicio local está en `~/automation/weekly-reports`. Su secreto de Gmail permanece en
+`~/.config/weekly-reports/gmail.env` con permisos `600`; nunca se guarda en PostgreSQL ni se
+envía al navegador. Tras desplegar la migración, sincroniza los informes locales existentes:
+
+```sh
+python3 ~/automation/weekly-reports/weekly_reports.py --sync-nexo
+```
+
+El timer de usuario se despierta cada hora y el script solo trabaja cuando coincide con el día,
+hora y zona horaria configurados en Nexo. Esto permite modificar la programación desde la web y
+mantiene `Persistent=true` para recuperar una ejecución perdida durante ese día. Después de
+actualizar las unidades, instala y recarga su configuración:
+
+```sh
+cp ~/automation/weekly-reports/systemd/weekly-reports.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user restart weekly-reports.timer
+```
+
+El acceso de escritura al panel debe mantenerse dentro de la red privada (por ejemplo, Headscale)
+y una futura autenticación propia de Nexo debe habilitarse antes de exponer la interfaz fuera de
+esa red.
+
 ## Comandos
 
 ```sh
@@ -167,18 +203,16 @@ El servidor independiente de `apps/mcp` publica `http://127.0.0.1:3100/mcp` medi
 En otra terminal, arráncalo localmente:
 
 ```powershell
-$env:MCP_AUTH_TOKEN = '<token-largo-y-aleatorio>'
 pnpm.cmd --filter @nexo/mcp dev
 ```
 
-Con `MCP_AUTH_TOKEN` configurado también en la terminal del cliente, comprueba el catálogo con el Inspector MCP. El comando `inspect` envía `Authorization: Bearer` con ese valor:
+Comprueba el catálogo con el Inspector MCP:
 
 ```powershell
-$env:MCP_AUTH_TOKEN = '<mismo-token>'
 pnpm.cmd --filter @nexo/mcp inspect
 ```
 
-Para abrir el Inspector visual en lugar del modo CLI, ejecuta `pnpm.cmd --filter @nexo/mcp exec mcp-inspector` y configura el transporte **Streamable HTTP** con `http://127.0.0.1:3100/mcp` y la cabecera `Authorization: Bearer <token>`.
+Para abrir el Inspector visual en lugar del modo CLI, ejecuta `pnpm.cmd --filter @nexo/mcp exec mcp-inspector` y configura el transporte **Streamable HTTP** con `http://127.0.0.1:3100/mcp`.
 
 ### Conexión desde Codex y Claude Code
 

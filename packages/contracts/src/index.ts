@@ -274,6 +274,94 @@ export type GithubCommit = z.infer<typeof GithubCommitSchema>;
 export type GithubRepository = z.infer<typeof GithubRepositorySchema>;
 export type GithubIntegrationStatus = z.infer<typeof GithubIntegrationStatusSchema>;
 
+/** Configuración visible del planificador de informes. Nunca contiene credenciales de correo. */
+export const WeeklyReportSettingsSchema = z.object({
+  enabled: z.boolean(),
+  recipient: z.string().email().max(320),
+  scheduleDay: z.number().int().min(1).max(7),
+  scheduleHour: z.number().int().min(0).max(23),
+  timeZone: z.string().trim().min(1).max(80),
+  updatedAt: TimestampSchema,
+});
+export type WeeklyReportSettings = z.infer<typeof WeeklyReportSettingsSchema>;
+
+export const UpdateWeeklyReportSettingsInputSchema = z.object({
+  enabled: z.boolean(),
+  recipient: z.string().trim().email().max(320),
+  scheduleDay: z.number().int().min(1).max(7),
+  scheduleHour: z.number().int().min(0).max(23),
+  timeZone: z.string().trim().min(1).max(80),
+}).strict();
+export type UpdateWeeklyReportSettingsInput = z.infer<typeof UpdateWeeklyReportSettingsInputSchema>;
+
+export const WeeklyReportProjectSchema = z.object({
+  id: EntityIdSchema,
+  projectId: EntityIdSchema.nullable(),
+  name: z.string().trim().min(1).max(120),
+  repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
+  focus: z.string().max(10_000),
+  enabled: z.boolean(),
+  sortOrder: z.number().int(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+});
+export type WeeklyReportProject = z.infer<typeof WeeklyReportProjectSchema>;
+
+export const UpdateWeeklyReportProjectInputSchema = z.object({
+  projectId: EntityIdSchema.nullable(),
+  name: z.string().trim().min(1).max(120),
+  repository: z.string().trim().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
+  focus: z.string().trim().max(10_000),
+  enabled: z.boolean(),
+  sortOrder: z.number().int().min(0).max(10_000),
+}).strict();
+export type UpdateWeeklyReportProjectInput = z.infer<typeof UpdateWeeklyReportProjectInputSchema>;
+
+export const ReportDeliveryStatusSchema = z.enum(['pending', 'sent', 'failed']);
+export const WeeklyReportStatusSchema = z.enum(['generated', 'failed']);
+export const AutomationRunStatusSchema = z.enum(['running', 'succeeded', 'failed']);
+
+export const WeeklyReportSchema = z.object({
+  id: EntityIdSchema,
+  reportProjectId: EntityIdSchema,
+  projectName: z.string().trim().min(1).max(120),
+  reportDate: z.string().date(),
+  periodStart: TimestampSchema,
+  periodEnd: TimestampSchema,
+  markdown: z.string().nullable(),
+  localPath: z.string().nullable(),
+  status: WeeklyReportStatusSchema,
+  emailStatus: ReportDeliveryStatusSchema,
+  messageId: z.string().nullable(),
+  emailError: z.string().nullable(),
+  sentAt: TimestampSchema.nullable(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+});
+export type WeeklyReport = z.infer<typeof WeeklyReportSchema>;
+
+export const AutomationRunSchema = z.object({
+  id: EntityIdSchema,
+  jobKey: z.string().min(1).max(80),
+  status: AutomationRunStatusSchema,
+  startedAt: TimestampSchema,
+  finishedAt: TimestampSchema.nullable(),
+  summary: z.string().nullable(),
+  error: z.string().nullable(),
+  createdAt: TimestampSchema,
+});
+export type AutomationRun = z.infer<typeof AutomationRunSchema>;
+
+export const WeeklyReportAutomationSchema = z.object({
+  settings: WeeklyReportSettingsSchema,
+  projects: z.array(WeeklyReportProjectSchema),
+  reports: z.array(WeeklyReportSchema),
+  runs: z.array(AutomationRunSchema),
+  /** null significa que el agente local aún no ha comunicado su estado. */
+  emailConfigured: z.boolean().nullable(),
+});
+export type WeeklyReportAutomation = z.infer<typeof WeeklyReportAutomationSchema>;
+
 export type Project = z.infer<typeof ProjectSchema>;
 
 /** Tarea que puede pertenecer a un proyecto o permanecer en el inbox. */

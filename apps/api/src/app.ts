@@ -5,6 +5,7 @@ import { createProjectsRoute } from './routes/projects.js';
 import { createTasksRoute } from './routes/tasks.js';
 import { settingsRoute } from './routes/settings.js';
 import { githubRoute } from './routes/github.js';
+import { automationRoute } from './routes/automation.js';
 import type { ProjectService } from './services/project.service.js';
 import type { TaskService } from './services/task.service.js';
 
@@ -18,6 +19,7 @@ export function createApp(projectService?: ProjectService, taskService?: TaskSer
 	app.route('/tasks', createTasksRoute(taskService));
 	app.route('/settings', settingsRoute);
 	app.route('/github', githubRoute);
+	app.route('/automation', automationRoute);
 
 	return app;
 }
