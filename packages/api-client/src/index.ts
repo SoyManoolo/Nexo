@@ -4,11 +4,15 @@ import {
   TaskAttachmentSchema,
   GithubCommitSchema, GithubIntegrationStatusSchema, GithubRepositorySchema, ImportGithubProjectInputSchema,
   ListTasksQuerySchema, ProjectSchema, TaskSchema, UpdateProjectInputSchema, UpdateTaskInputSchema,
+  UpdateWeeklyReportProjectInputSchema, UpdateWeeklyReportSettingsInputSchema, WeeklyReportAutomationSchema,
+  WeeklyReportProjectSchema, WeeklyReportSettingsSchema,
   type CreateProjectInput, type CreateTaskInput, type HealthResponse, type ListProjectsQuery,
   type ProjectActivity,
   type TaskAttachment,
   type GithubCommit, type GithubIntegrationStatus, type GithubRepository, type ImportGithubProjectInput,
   type ListTasksQuery, type Project, type Task, type UpdateProjectInput, type UpdateTaskInput,
+  type UpdateWeeklyReportProjectInput, type UpdateWeeklyReportSettingsInput, type WeeklyReportAutomation,
+  type WeeklyReportProject, type WeeklyReportSettings,
 } from '@nexo/contracts';
 import { z } from 'zod';
 
@@ -80,6 +84,13 @@ export class NexoApiClient {
   async getGithubIntegrationStatus(): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'GET' }, GithubIntegrationStatusSchema); }
   async saveGithubToken(token: string): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'PUT', body: { token } }, GithubIntegrationStatusSchema); }
   async removeGithubToken(): Promise<GithubIntegrationStatus> { return this.request('/settings/github', { method: 'DELETE' }, GithubIntegrationStatusSchema); }
+  async getWeeklyReportAutomation(): Promise<WeeklyReportAutomation> { return this.request('/automation/weekly-reports', { method: 'GET' }, WeeklyReportAutomationSchema); }
+  async updateWeeklyReportSettings(input: UpdateWeeklyReportSettingsInput): Promise<WeeklyReportSettings> {
+    return this.request('/automation/weekly-reports', { method: 'PUT', body: UpdateWeeklyReportSettingsInputSchema.parse(input) }, WeeklyReportSettingsSchema);
+  }
+  async updateWeeklyReportProject(id: string, input: UpdateWeeklyReportProjectInput): Promise<WeeklyReportProject> {
+    return this.request(`/automation/weekly-reports/projects/${encodeURIComponent(id)}`, { method: 'PUT', body: UpdateWeeklyReportProjectInputSchema.parse(input) }, WeeklyReportProjectSchema);
+  }
   async createTask(input: CreateTaskInput): Promise<Task> { return this.request('/tasks', { method: 'POST', body: CreateTaskInputSchema.parse(input) }, TaskSchema); }
   async listTasks(filters: ListTasksQuery = {}): Promise<Task[]> { return this.request('/tasks', { method: 'GET', query: ListTasksQuerySchema.parse(filters) }, z.array(TaskSchema)); }
   async listDeletedTasks(): Promise<Task[]> { return this.request('/tasks/deleted', { method: 'GET' }, z.array(TaskSchema)); }
